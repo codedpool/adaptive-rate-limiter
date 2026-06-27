@@ -78,8 +78,9 @@ export async function buildServer() {
     hub.onEvent(event);
   };
 
-  // Server-side traffic simulator for the dashboard's Start button.
-  const demo = new DemoDriver({ limiter, emit, rule: defaultRuleFromConfig(config.defaultRule) });
+  // Server-side traffic simulator for the dashboard controls.
+  const demoRule = defaultRuleFromConfig(config.defaultRule);
+  const demo = new DemoDriver({ limiter, emit, rule: demoRule });
   app.decorate('demo', demo);
 
   await app.register(rateLimitPlugin, {
@@ -115,16 +116,17 @@ export async function buildServer() {
   // Demo endpoint that exercises the limiter.
   app.get('/api/ping', async () => ({ pong: true }));
 
-  // Dashboard "Start" button controls the server-side traffic simulator.
-  app.post('/demo/start', async () => {
-    demo.start();
-    return demo.status();
+  // Dashboard controls for the server-side traffic simulator.
+  app.get('/demo/status', async () => ({ ...demo.status(), rule: demoRule }));
+  app.post('/demo/start', async () => demo.start());
+  app.post('/demo/stop', async () => demo.stop());
+  app.post('/demo/lane/:name/:state', async (req, reply) => {
+    const { name, state } = req.params;
+    if (!['normal', 'attacker'].includes(name) || !['on', 'off'].includes(state)) {
+      return reply.code(400).send({ error: 'bad lane or state' });
+    }
+    return demo.setLane(name, state === 'on');
   });
-  app.post('/demo/stop', async () => {
-    demo.stop();
-    return demo.status();
-  });
-  app.get('/demo/status', async () => demo.status());
 
   app.addHook('onClose', async () => {
     demo.stop();

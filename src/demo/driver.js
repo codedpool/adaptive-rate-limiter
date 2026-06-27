@@ -1,14 +1,21 @@
 /**
- * Server-side traffic simulator for the dashboard's "Start" button.
+ * Server-side traffic simulator for the dashboard's controls.
  *
  * A browser can't forge per-client IPs (X-Forwarded-For is a forbidden header),
- * so the multi-IP demo runs here: it drives synthetic keys through the *real*
- * limiter and feeds every decision into the same emit hook the live dashboard
- * reads. So clicking Start shows genuine throttling, no terminal needed — which
- * is what makes the deployed (Render) URL a self-contained demo.
+ * so multi-client traffic is generated here: each "lane" drives synthetic keys
+ * through the *real* limiter and feeds every decision into the same emit hook the
+ * live dashboard reads. So the toggles show genuine throttling, no terminal
+ * needed — which makes the deployed (Render) URL a self-contained demo.
+ *
+ * Lanes are independent so a visitor can build a scenario: normal users alone
+ * stay green; flip on the bot attack and watch that one key go red.
  */
-const NORMAL = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '203.0.113.7', '198.51.100.4'];
-const ATTACKER = '45.155.205.99';
+const LANES = {
+  // several well-behaved IPs at a modest rate — stay under the limit
+  normal: { ips: ['10.0.0.1', '10.0.0.2', '10.0.0.3', '203.0.113.7', '198.51.100.4'], everyMs: 250, perTick: 1 },
+  // one IP hammering — crosses the limit and gets throttled
+  attacker: { ips: ['45.155.205.99'], everyMs: 1000, perTick: 40 },
+};
 
 export class DemoDriver {
   /**
@@ -16,48 +23,71 @@ export class DemoDriver {
    * @param {import('../core/limiter.js').Limiter} opts.limiter
    * @param {(event: object) => void} opts.emit
    * @param {object} opts.rule
-   * @param {number} [opts.maxMs]  auto-stop after this long, so it never runs forever
+   * @param {number} [opts.maxMs] auto-stop everything after this long
    */
-  constructor({ limiter, emit, rule, maxMs = 120_000 }) {
+  constructor({ limiter, emit, rule, maxMs = 300_000 }) {
     this.limiter = limiter;
     this.emit = emit;
     this.rule = rule;
     this.maxMs = maxMs;
-    this.running = false;
-    this.timers = [];
+    /** @type {Record<string, ReturnType<typeof setInterval>|null>} */
+    this.lanes = { normal: null, attacker: null };
     this.stopTimer = null;
   }
 
+  get running() {
+    return Object.values(this.lanes).some(Boolean);
+  }
+
+  /** Turn a single lane on or off. Returns the new status. */
+  setLane(name, on) {
+    if (!(name in LANES)) return this.status();
+    const active = Boolean(this.lanes[name]);
+    if (on && !active) {
+      const cfg = LANES[name];
+      const fireTick = () => {
+        for (const ip of cfg.ips) for (let i = 0; i < cfg.perTick; i++) this._fire(`ip:${ip}`);
+      };
+      fireTick(); // fire one tick immediately so toggling feels instant
+      this.lanes[name] = setInterval(fireTick, cfg.everyMs);
+      this._armAutoStop();
+    } else if (!on && active) {
+      clearInterval(this.lanes[name]);
+      this.lanes[name] = null;
+      if (!this.running) this._clearAutoStop();
+    }
+    return this.status();
+  }
+
+  /** Turn every lane on (back-compat with the old single button). */
   start() {
-    if (this.running) return false;
-    this.running = true;
-    this.timers = [
-      // steady, well-behaved traffic from several IPs
-      setInterval(() => {
-        for (const ip of NORMAL) this._fire(`ip:${ip}`);
-      }, 250),
-      // one IP hammering — this is what gets throttled
-      setInterval(() => {
-        for (let i = 0; i < 40; i++) this._fire(`ip:${ATTACKER}`);
-      }, 1000),
-    ];
-    this.stopTimer = setTimeout(() => this.stop(), this.maxMs);
-    if (this.stopTimer.unref) this.stopTimer.unref();
-    return true;
+    for (const name of Object.keys(LANES)) this.setLane(name, true);
+    return this.status();
   }
 
+  /** Turn every lane off. */
   stop() {
-    if (!this.running) return false;
-    this.running = false;
-    for (const t of this.timers) clearInterval(t);
-    this.timers = [];
-    if (this.stopTimer) clearTimeout(this.stopTimer);
-    this.stopTimer = null;
-    return true;
+    for (const name of Object.keys(this.lanes)) this.setLane(name, false);
+    this._clearAutoStop();
+    return this.status();
   }
 
   status() {
-    return { running: this.running };
+    return {
+      running: this.running,
+      lanes: { normal: Boolean(this.lanes.normal), attacker: Boolean(this.lanes.attacker) },
+    };
+  }
+
+  _armAutoStop() {
+    if (this.stopTimer) return;
+    this.stopTimer = setTimeout(() => this.stop(), this.maxMs);
+    if (this.stopTimer.unref) this.stopTimer.unref();
+  }
+
+  _clearAutoStop() {
+    if (this.stopTimer) clearTimeout(this.stopTimer);
+    this.stopTimer = null;
   }
 
   async _fire(key) {

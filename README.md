@@ -83,26 +83,30 @@ Exceed the limit and you get `429 Too Many Requests` with a `Retry-After` header
 
 ## Live dashboard (30-second demo)
 
-A real-time WebSocket dashboard shows which keys/IPs are being throttled and by
-how much — no AI, just a live feed of decisions.
+A real-time WebSocket dashboard makes the limiter explorable — no AI, just live
+decisions you can cause yourself.
 
 ```bash
 npm start
-# open http://localhost:3000  →  click "▶ start demo"
+# open http://localhost:3000
 ```
 
-The **Start** button drives a server-side traffic simulator (steady traffic from
-several IPs plus one bursting "attacker") through the real limiter and into the
-dashboard — so the deployed URL is a self-contained demo with no terminal needed.
-It auto-stops after two minutes. (You can also generate load from a terminal with
-`npm run demo:traffic`.)
+The page is a self-contained sandbox (works on the deployed URL, no terminal):
 
-Within seconds you'll see one IP cross its limit and start getting blocked, with
-live totals, a top-keys table (sorted by blocked count), and a scrolling event
-feed. It's fed in-process from the same `emit` hook the adaptive layer uses, and
-updates are **batched** over the socket so request rate ≠ frame rate. Works even
-with Redis down (degraded path still emits). See
-[src/dashboard/](src/dashboard/).
+- **Try it yourself** — *Send a request* / *Flood ×40* fire real requests from your
+  browser to `/api/ping`; a meter shows "requests left before throttling" ticking
+  down to a live 429. The active rule (e.g. `100 req / 60s · burst 20`) is shown so
+  the numbers mean something.
+- **Simulate other clients** — toggle "Normal users" and "Bot attack" lanes; a
+  server-side driver runs them through the real limiter (a browser can't spoof
+  client IPs). Watch the attacker IP cross the limit and go red while normal users
+  stay green.
+
+Everything streams into the live **scope** (throughput, blocked stacked in red),
+a top-keys table sorted by block intensity, and an event feed. It's fed in-process
+from the same `emit` hook the adaptive layer uses, **batched** over the socket so
+request rate ≠ frame rate, and works even with Redis down. See
+[src/dashboard/](src/dashboard/). (Terminal alternative: `npm run demo:traffic`.)
 
 ---
 

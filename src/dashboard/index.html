@@ -13,11 +13,11 @@
     <style>
       :root {
         --bg: #0a0a0b;
-        --ink: #f3c277;        /* amber phosphor — primary */
-        --ink-bright: #ffd79a;  /* brightest readouts */
-        --mute: #837a6c;        /* warm gray — labels */
-        --flow: #f5b54a;        /* allowed */
-        --heat: #ff5247;        /* blocked / alert (used sparingly) */
+        --ink: #f3c277;
+        --ink-bright: #ffd79a;
+        --mute: #837a6c;
+        --flow: #f5b54a;
+        --heat: #ff5247;
         --line: rgba(245, 181, 74, 0.12);
         --line-soft: rgba(245, 181, 74, 0.06);
         --display: 'Space Grotesk', system-ui, -apple-system, Segoe UI, sans-serif;
@@ -37,28 +37,11 @@
         line-height: 1.5;
         -webkit-font-smoothing: antialiased;
       }
-      .eyebrow {
-        font-family: var(--display);
-        text-transform: uppercase;
-        letter-spacing: 0.22em;
-        font-size: 10px;
-        font-weight: 600;
-        color: var(--mute);
-      }
+      .eyebrow { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.22em; font-size: 10px; font-weight: 600; color: var(--mute); }
 
-      /* ---- status line (terminal-style) ---- */
-      .status {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 11px 22px;
-        border-bottom: 1px solid var(--line);
-        font-size: 11px;
-        color: var(--mute);
-      }
+      .status { display: flex; align-items: center; gap: 12px; padding: 11px 22px; border-bottom: 1px solid var(--line); font-size: 11px; color: var(--mute); }
       .status .mark { font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: -0.01em; color: var(--ink-bright); }
       .status .mark span { color: var(--flow); }
-      .status .seg { color: var(--mute); }
       .status .seg b { color: var(--ink); font-weight: 500; }
       .grow { flex: 1; }
       .conn { display: inline-flex; align-items: center; gap: 7px; }
@@ -67,82 +50,74 @@
       .conn.up .dot { background: var(--flow); animation: ping 2s infinite; }
       .conn.down { color: var(--heat); }
       .conn.down .dot { background: var(--heat); }
-      .btn {
-        font-family: var(--mono);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.03em;
-        color: #0a0a0b;
-        background: var(--flow);
-        border: 1px solid var(--flow);
-        padding: 5px 13px;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: filter 0.15s ease, background 0.15s ease, color 0.15s ease;
-      }
+      @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(245, 181, 74, 0.5); } 70% { box-shadow: 0 0 0 6px rgba(245, 181, 74, 0); } 100% { box-shadow: 0 0 0 0 rgba(245, 181, 74, 0); } }
+
+      .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 22px 40px; }
+
+      /* ---- intro ---- */
+      .intro { font-size: 14px; color: var(--mute); margin: 0 0 20px; max-width: 760px; }
+      .intro b { color: var(--ink); font-weight: 500; }
+      .intro .ok { color: var(--flow); }
+      .intro .no { color: var(--heat); }
+
+      /* ---- control deck ---- */
+      .deck { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 22px; overflow: hidden; }
+      @media (max-width: 760px) { .deck { grid-template-columns: 1fr; } }
+      .deck .pane { padding: 16px 18px; }
+      .deck .pane + .pane { border-left: 1px solid var(--line-soft); }
+      @media (max-width: 760px) { .deck .pane + .pane { border-left: none; border-top: 1px solid var(--line-soft); } }
+      .deck h3 { margin: 0 0 12px; }
+      .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+      .btn { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: #0a0a0b; background: var(--flow); border: 1px solid var(--flow); padding: 8px 15px; border-radius: 4px; cursor: pointer; transition: filter 0.15s, background 0.15s, color 0.15s; }
       .btn:hover { filter: brightness(1.08); }
+      .btn:active { transform: translateY(1px); }
       .btn:focus-visible { outline: 2px solid var(--ink-bright); outline-offset: 2px; }
-      .btn.on { background: transparent; color: var(--heat); border-color: var(--heat); }
-      @keyframes ping {
-        0% { box-shadow: 0 0 0 0 rgba(245, 181, 74, 0.5); }
-        70% { box-shadow: 0 0 0 6px rgba(245, 181, 74, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(245, 181, 74, 0); }
-      }
+      .btn.ghost { background: transparent; color: var(--ink); }
+      .toggle { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--mute); background: transparent; border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.15s; }
+      .toggle .led { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+      .toggle:hover { border-color: var(--mute); }
+      .toggle.on { color: #0a0a0b; background: var(--flow); border-color: var(--flow); }
+      .toggle.on .led { background: #0a0a0b; }
+      .toggle.danger.on { background: var(--heat); border-color: var(--heat); }
 
-      .wrap { max-width: 1200px; margin: 0 auto; padding: 26px 22px 40px; }
+      /* you-meter */
+      .you { margin-top: 14px; }
+      .you-state { font-size: 13px; color: var(--mute); margin-bottom: 7px; }
+      .you-state b { color: var(--ink-bright); font-weight: 700; }
+      .you-state.ok b { color: var(--flow); }
+      .you-state.no { color: var(--heat); }
+      .you-state.no b { color: var(--heat); }
+      .meter { height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; }
+      .meter .mfill { height: 100%; width: 100%; background: linear-gradient(90deg, var(--heat), var(--flow)); transition: width 0.25s ease; }
+      .rule { margin-top: 13px; font-size: 12px; color: var(--mute); }
+      .rule b { color: var(--ink); font-weight: 500; }
+      .hint { font-size: 11px; color: var(--mute); margin-top: 9px; }
 
-      /* ---- signature: the scope ---- */
+      /* ---- scope ---- */
       .scope-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; }
       .scope-legend { display: flex; gap: 18px; font-size: 11px; color: var(--mute); }
       .scope-legend i { display: inline-block; width: 18px; height: 3px; margin-right: 7px; vertical-align: 3px; border-radius: 2px; }
-      .scope-box {
-        position: relative;
-        border: 1px solid var(--line);
-        border-radius: 4px;
-        background: linear-gradient(180deg, rgba(245, 181, 74, 0.025), transparent 70%);
-      }
-      .scope-box::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0, rgba(0, 0, 0, 0.18) 1px, transparent 2px, transparent 3px);
-        opacity: 0.35;
-        border-radius: 4px;
-      }
-      #scope { display: block; width: 100%; height: 184px; }
+      .scope-box { position: relative; border: 1px solid var(--line); border-radius: 4px; background: linear-gradient(180deg, rgba(245, 181, 74, 0.025), transparent 70%); }
+      .scope-box::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0, rgba(0, 0, 0, 0.18) 1px, transparent 2px, transparent 3px); opacity: 0.35; border-radius: 4px; }
+      #scope { display: block; width: 100%; height: 172px; }
 
-      /* ---- instrument readout cluster (no cards) ---- */
-      .readout {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        border: 1px solid var(--line);
-        border-radius: 4px;
-        margin: 22px 0;
-      }
+      /* ---- readout ---- */
+      .readout { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 4px; margin: 22px 0; }
       .cell { padding: 16px 20px; border-left: 1px solid var(--line-soft); }
       .cell:first-child { border-left: none; }
       .cell .v { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin-top: 9px; color: var(--ink-bright); font-variant-numeric: tabular-nums; }
       .cell .v.flow { color: var(--flow); }
       .cell .v.heat { color: var(--heat); }
-      .cell .v.warn { color: var(--ink-bright); }
 
-      /* ---- two-column instrument body ---- */
+      /* ---- body ---- */
       .cols { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 28px; align-items: start; }
       @media (max-width: 900px) { .cols { grid-template-columns: 1fr; gap: 26px; } }
       .panel-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
       .panel-head .count { font-size: 11px; color: var(--mute); }
 
-      /* ---- throttled keys: aligned data rows ---- */
       .keys { display: flex; flex-direction: column; }
-      .krow {
-        display: grid;
-        grid-template-columns: 14px 168px 1fr 96px;
-        gap: 12px;
-        align-items: center;
-        padding: 9px 0;
-        border-bottom: 1px solid var(--line-soft);
-      }
+      .krow { display: grid; grid-template-columns: 14px 168px 1fr 96px; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
       .krow .tick { width: 3px; height: 22px; border-radius: 2px; background: transparent; justify-self: start; }
       .krow.hot .tick { background: var(--heat); }
       .krow .key { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
@@ -154,18 +129,8 @@
       .krow .nums { text-align: right; font-size: 11px; color: var(--mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
       .krow .nums b { color: var(--heat); font-weight: 500; }
 
-      /* ---- event stream: log tail ---- */
       .feed { max-height: 420px; overflow-y: auto; }
-      .line {
-        display: grid;
-        grid-template-columns: 74px 52px 1fr auto;
-        gap: 12px;
-        align-items: baseline;
-        padding: 5px 0;
-        border-bottom: 1px solid var(--line-soft);
-        font-size: 12px;
-        animation: drop 0.18s ease both;
-      }
+      .line { display: grid; grid-template-columns: 74px 52px 1fr auto; gap: 12px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--line-soft); font-size: 12px; animation: drop 0.18s ease both; }
       .line .ts { color: var(--mute); font-size: 11px; }
       .line .tag { font-weight: 700; font-size: 11px; letter-spacing: 0.04em; }
       .line.allow .tag { color: var(--flow); }
@@ -175,7 +140,6 @@
       @keyframes drop { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
 
       .empty { color: var(--mute); padding: 30px 4px; text-align: center; font-size: 12px; }
-      .empty code { color: var(--flow); }
       .feed::-webkit-scrollbar { width: 7px; }
       .feed::-webkit-scrollbar-thumb { background: var(--line); border-radius: 7px; }
 
@@ -188,11 +152,43 @@
       <span class="seg">· live control</span>
       <span class="grow"></span>
       <span class="seg">clock <b id="clock">--:--:--</b></span>
-      <button id="demo" class="btn" type="button">▶ start demo</button>
       <span class="conn down" id="conn"><span class="dot"></span><span id="conn-text">connecting</span></span>
     </div>
 
     <div class="wrap">
+      <p class="intro">
+        A rate limiter caps how many requests each client (here, each IP) may make in a time window.
+        Stay under the limit and you're <b class="ok">allowed</b>; go over and you're
+        <b class="no">throttled</b> with HTTP&nbsp;429. Use the controls to make it happen.
+      </p>
+
+      <!-- CONTROL DECK -->
+      <div class="deck">
+        <div class="pane">
+          <h3 class="eyebrow">Try it yourself</h3>
+          <div class="row">
+            <button id="send" class="btn" type="button">Send a request</button>
+            <button id="flood" class="btn ghost" type="button">Flood ×40</button>
+          </div>
+          <div class="you">
+            <div id="you-state" class="you-state">Your requests left before throttling: <b id="you-num">—</b></div>
+            <div class="meter"><div id="you-fill" class="mfill"></div></div>
+          </div>
+          <div class="rule">Active rule: <b id="rule">loading…</b></div>
+        </div>
+        <div class="pane">
+          <h3 class="eyebrow">Simulate other clients</h3>
+          <div class="row">
+            <button id="tg-normal" class="toggle" type="button"><span class="led"></span>Normal users</button>
+            <button id="tg-attacker" class="toggle danger" type="button"><span class="led"></span>Bot attack</button>
+          </div>
+          <p class="hint">
+            Normal users stay green. Turn on the bot attack and watch one IP cross the limit and go red
+            in the chart and the lists below.
+          </p>
+        </div>
+      </div>
+
       <!-- SIGNATURE -->
       <div class="scope-head">
         <span class="eyebrow">throughput / req · per second · last 90s</span>
@@ -203,7 +199,6 @@
       </div>
       <div class="scope-box"><canvas id="scope"></canvas></div>
 
-      <!-- readout cluster -->
       <div class="readout">
         <div class="cell"><div class="eyebrow">Allowed</div><div id="t-allowed" class="v flow">0</div></div>
         <div class="cell"><div class="eyebrow">Blocked</div><div id="t-blocked" class="v heat">0</div></div>
@@ -214,15 +209,11 @@
       <div class="cols">
         <section>
           <div class="panel-head"><span class="eyebrow">Throttled keys · by intensity</span><span class="count" id="k-count"></span></div>
-          <div id="keys" class="keys">
-            <div class="empty">No traffic yet — press <code>▶ start demo</code> above</div>
-          </div>
+          <div id="keys" class="keys"><div class="empty">No traffic yet — send a request or simulate clients above.</div></div>
         </section>
         <section>
           <div class="panel-head"><span class="eyebrow">Event stream</span><span class="count">live</span></div>
-          <div id="feed" class="feed">
-            <div class="empty">Waiting for requests…</div>
-          </div>
+          <div id="feed" class="feed"><div class="empty">Waiting for requests…</div></div>
         </section>
       </div>
     </div>
@@ -236,6 +227,7 @@
       let stats = [];
       const feed = [];
       window.__totals = { allowed: 0, blocked: 0 };
+      let burst = 20; // meter denominator for the "you" panel
 
       function render() {
         const { allowed, blocked } = window.__totals;
@@ -245,13 +237,13 @@
         $('t-blocked').textContent = fmt(blocked);
         const rEl = $('t-rate');
         rEl.textContent = rate.toFixed(1) + '%';
-        rEl.className = 'v ' + (rate > 25 ? 'heat' : rate > 5 ? 'warn' : '');
+        rEl.className = 'v ' + (rate > 25 ? 'heat' : rate > 5 ? 'flow' : '');
         $('t-keys').textContent = stats.length;
         $('k-count').textContent = stats.length ? stats.length + ' keys' : '';
 
         const keysEl = $('keys');
         if (!stats.length) {
-          keysEl.innerHTML = '<div class="empty">No traffic yet — press <code>▶ start demo</code> above</div>';
+          keysEl.innerHTML = '<div class="empty">No traffic yet — send a request or simulate clients above.</div>';
         } else {
           keysEl.innerHTML = stats
             .slice(0, 12)
@@ -292,6 +284,54 @@
         }
       }
 
+      // ---- try it: real requests from YOUR browser ----
+      function setYou(status, remaining, retry) {
+        const el = $('you-state');
+        if (status === 429) {
+          el.className = 'you-state no';
+          el.innerHTML = `Throttled — <b>429</b>. Retry in ${retry || 0}s. Stop and your budget refills.`;
+          $('you-fill').style.width = '0%';
+        } else {
+          const rem = remaining == null ? burst : Number(remaining);
+          el.className = 'you-state ok';
+          el.innerHTML = `Your requests left before throttling: <b>${rem}</b>`;
+          $('you-fill').style.width = Math.max(0, Math.min(100, (rem / burst) * 100)) + '%';
+        }
+      }
+
+      async function sendOne() {
+        try {
+          const res = await fetch('/api/ping', { cache: 'no-store' });
+          setYou(res.status, res.headers.get('RateLimit-Remaining'), res.headers.get('Retry-After'));
+        } catch {
+          /* ignore */
+        }
+      }
+      async function flood(n) {
+        const jobs = [];
+        for (let i = 0; i < n; i++) jobs.push(sendOne());
+        await Promise.all(jobs);
+      }
+      $('send').addEventListener('click', sendOne);
+      $('flood').addEventListener('click', () => flood(40));
+
+      // ---- simulate: server-side lanes ----
+      function syncLanes(s) {
+        $('tg-normal').classList.toggle('on', !!s.lanes?.normal);
+        $('tg-attacker').classList.toggle('on', !!s.lanes?.attacker);
+      }
+      async function toggleLane(name, btn) {
+        const on = !btn.classList.contains('on');
+        try {
+          const res = await fetch(`/demo/lane/${name}/${on ? 'on' : 'off'}`, { method: 'POST' });
+          syncLanes(await res.json());
+        } catch {
+          /* ignore */
+        }
+      }
+      $('tg-normal').addEventListener('click', (e) => toggleLane('normal', e.currentTarget));
+      $('tg-attacker').addEventListener('click', (e) => toggleLane('attacker', e.currentTarget));
+
       // ---- the scope ----
       const canvas = $('scope');
       const ctx = canvas.getContext('2d');
@@ -308,7 +348,6 @@
         canvas.height = Math.max(1, cssH * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
-
       function sample() {
         const a = Math.max(0, window.__totals.allowed - last.allowed);
         const b = Math.max(0, window.__totals.blocked - last.blocked);
@@ -316,7 +355,6 @@
         series.push({ a, b });
         series.shift();
       }
-
       function trace(values, max, y0, h) {
         const step = cssW / (N - 1);
         ctx.beginPath();
@@ -325,7 +363,6 @@
         ctx.lineTo(cssW, y0);
         ctx.closePath();
       }
-
       function draw() {
         ctx.clearRect(0, 0, cssW, cssH);
         const pad = 8;
@@ -334,58 +371,38 @@
         const totals = series.map((s) => s.a + s.b);
         const blocked = series.map((s) => s.b);
         const max = Math.max(4, ...totals);
+        const step = cssW / (N - 1);
 
-        // graticule
         ctx.strokeStyle = 'rgba(245,181,74,0.08)';
         ctx.lineWidth = 1;
-        for (let g = 1; g < 4; g++) {
-          const y = pad + (h * g) / 4;
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cssW, y); ctx.stroke();
-        }
-        for (let g = 1; g < 12; g++) {
-          const x = (cssW * g) / 12;
-          ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, y0); ctx.stroke();
-        }
+        for (let g = 1; g < 4; g++) { const y = pad + (h * g) / 4; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cssW, y); ctx.stroke(); }
+        for (let g = 1; g < 12; g++) { const x = (cssW * g) / 12; ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, y0); ctx.stroke(); }
 
-        // allowed (amber) area + trace
         trace(totals, max, y0, h);
         let grad = ctx.createLinearGradient(0, pad, 0, y0);
         grad.addColorStop(0, 'rgba(245,181,74,0.30)');
         grad.addColorStop(1, 'rgba(245,181,74,0.02)');
         ctx.fillStyle = grad; ctx.fill();
         ctx.beginPath();
-        const step = cssW / (N - 1);
-        for (let i = 0; i < N; i++) {
-          const x = i * step, y = y0 - (totals[i] / max) * h;
-          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-        }
-        ctx.strokeStyle = 'rgba(245,181,74,0.9)';
-        ctx.lineWidth = 1.5; ctx.shadowColor = 'rgba(245,181,74,0.6)'; ctx.shadowBlur = 8;
-        ctx.stroke(); ctx.shadowBlur = 0;
+        for (let i = 0; i < N; i++) { const x = i * step, y = y0 - (totals[i] / max) * h; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.strokeStyle = 'rgba(245,181,74,0.9)'; ctx.lineWidth = 1.5; ctx.shadowColor = 'rgba(245,181,74,0.6)'; ctx.shadowBlur = 8; ctx.stroke(); ctx.shadowBlur = 0;
 
-        // blocked (red) area
         trace(blocked, max, y0, h);
         grad = ctx.createLinearGradient(0, pad, 0, y0);
         grad.addColorStop(0, 'rgba(255,82,71,0.38)');
         grad.addColorStop(1, 'rgba(255,82,71,0.03)');
         ctx.fillStyle = grad; ctx.fill();
         ctx.beginPath();
-        for (let i = 0; i < N; i++) {
-          const x = i * step, y = y0 - (blocked[i] / max) * h;
-          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-        }
-        ctx.strokeStyle = 'rgba(255,82,71,0.95)';
-        ctx.lineWidth = 1.5; ctx.shadowColor = 'rgba(255,82,71,0.6)'; ctx.shadowBlur = 8;
-        ctx.stroke(); ctx.shadowBlur = 0;
+        for (let i = 0; i < N; i++) { const x = i * step, y = y0 - (blocked[i] / max) * h; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.strokeStyle = 'rgba(255,82,71,0.95)'; ctx.lineWidth = 1.5; ctx.shadowColor = 'rgba(255,82,71,0.6)'; ctx.shadowBlur = 8; ctx.stroke(); ctx.shadowBlur = 0;
       }
-
       function clock() {
         const d = new Date();
         $('clock').textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
       }
-
       function tick() { sample(); render(); draw(); clock(); }
 
+      // ---- websocket ----
       function connect() {
         const proto = location.protocol === 'https:' ? 'wss' : 'ws';
         const ws = new WebSocket(`${proto}://${location.host}/ws/feed`);
@@ -401,29 +418,18 @@
         };
       }
 
-      // ---- start/stop demo traffic (server-side simulator) ----
-      const demoBtn = $('demo');
-      let demoOn = false;
-      function setDemo(on) {
-        demoOn = on;
-        demoBtn.textContent = on ? '■ stop demo' : '▶ start demo';
-        demoBtn.classList.toggle('on', on);
-      }
-      demoBtn.addEventListener('click', async () => {
-        demoBtn.disabled = true;
-        try {
-          const res = await fetch(demoOn ? '/demo/stop' : '/demo/start', { method: 'POST' });
-          setDemo(!!(await res.json()).running);
-        } catch {
-          /* ignore */
-        } finally {
-          demoBtn.disabled = false;
-        }
-      });
-      // sync button with current server state (another visitor may have started it)
+      // ---- init: load rule + lane state ----
       fetch('/demo/status')
         .then((r) => r.json())
-        .then((j) => setDemo(!!j.running))
+        .then((s) => {
+          syncLanes(s);
+          if (s.rule) {
+            burst = s.rule.burst || s.rule.limit || 20;
+            const secs = Math.round((s.rule.windowMs || 0) / 1000);
+            $('rule').textContent = `${s.rule.limit} requests / ${secs}s · burst ${s.rule.burst} · ${s.rule.strategy}`;
+            setYou(200, burst, 0);
+          }
+        })
         .catch(() => {});
 
       resize();
