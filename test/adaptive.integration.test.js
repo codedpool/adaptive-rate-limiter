@@ -36,9 +36,6 @@ suite('adaptive layer (Redis Streams)', () => {
 
   it('producer -> worker consumer group round trip consumes and acks events', async () => {
     const streamKey = `test:stream:${randomUUID()}`;
-    const producer = new StreamProducer(client, { streamKey, maxLen: 1000 });
-    for (let i = 0; i < 5; i++) producer.emit({ key: 'ip:1.2.3.4', allowed: true, route: 'GET /x', ts: 100 + i });
-
     const worker = new AdaptiveWorker({
       client: makeClient(),
       streamKey,
@@ -47,7 +44,13 @@ suite('adaptive layer (Redis Streams)', () => {
       blockMs: 200,
       store: new SuggestionStore(client, { hashKey: `test:sug:${randomUUID()}` }),
     });
+    // Create the group (starts at "$") BEFORE emitting, then await the writes, so
+    // the events are guaranteed to land after the group's start position.
     await worker.ensureGroup();
+    const producer = new StreamProducer(client, { streamKey, maxLen: 1000 });
+    await Promise.all(
+      Array.from({ length: 5 }, (_, i) => producer.emit({ key: 'ip:1.2.3.4', allowed: true, route: 'GET /x', ts: 100 + i })),
+    );
 
     // events were at ts ~100 (bucket 0); advance now to bucket 2 so bucket 0 closes
     const processed = await worker.tick(2000);

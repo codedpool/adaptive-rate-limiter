@@ -17,10 +17,15 @@ export class StreamProducer {
     this.maxLen = maxLen;
   }
 
-  /** @param {{key:string, allowed:boolean, route?:string, ts:number}} event */
+  /**
+   * @param {{key:string, allowed:boolean, route?:string, ts:number}} event
+   * @returns {Promise<void>} resolves when written (errors swallowed). The hot
+   *   path never awaits this; it's returned only so callers/tests that want to
+   *   know it landed can await.
+   */
   emit(event) {
     // MAXLEN ~ lets Redis trim in efficient batches rather than on every add.
-    this.client
+    return this.client
       .xadd(
         this.streamKey,
         'MAXLEN',
