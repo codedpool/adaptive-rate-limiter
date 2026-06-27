@@ -2,33 +2,58 @@ import Fastify from 'fastify';
 import { config } from './config/index.js';
 import { logger } from './observability/logger.js';
 import { Store } from './core/store.js';
+import { RedisLimiter } from './core/redisLimiter.js';
+import { Limiter } from './core/limiter.js';
+import { CircuitBreaker } from './core/circuitBreaker.js';
+import { rateLimitPlugin } from './middleware/fastify.js';
+import { makeRuleResolver, defaultRuleFromConfig } from './middleware/rules.js';
 
 /**
- * Application entrypoint. Phase 0 wires up the HTTP server with liveness/readiness
- * probes and a Redis connection. Later phases attach the rate-limit middleware,
- * metrics, and admin routes onto this same instance.
+ * Application entrypoint. Wires the HTTP server, Redis-backed limiter (with
+ * in-memory fallback behind a circuit breaker), and the rate-limit middleware.
  */
 export async function buildServer() {
-  const app = Fastify({ logger: false });
+  // trustProxy must be set so req.ip is the real client when behind a proxy/LB.
+  const app = Fastify({ logger: false, trustProxy: true });
   const store = new Store(config.redisUrl);
 
+  const redisLimiter = new RedisLimiter(store.client);
+  const limiter = new Limiter({
+    redisLimiter,
+    failMode: config.failMode,
+    breaker: new CircuitBreaker({ failureThreshold: 5, cooldownMs: 5000 }),
+    onDegraded: (info) => logger.warn(info, 'rate limiter degraded to fallback'),
+  });
+
   app.decorate('store', store);
+  app.decorate('limiter', limiter);
 
-  // Liveness: process is up.
+  // Probes must never be rate limited.
+  const resolveRule = makeRuleResolver({
+    defaultRule: defaultRuleFromConfig(config.defaultRule),
+    routes: {
+      'GET /health': null,
+      'GET /ready': null,
+    },
+  });
+
+  await app.register(rateLimitPlugin, { limiter, resolveRule });
+
   app.get('/health', async () => ({ status: 'ok' }));
-
-  // Readiness: dependencies (Redis) are reachable.
   app.get('/ready', async (_req, reply) => {
     const redisOk = await store.ping();
     if (!redisOk) return reply.code(503).send({ status: 'not_ready', redis: false });
     return { status: 'ready', redis: true };
   });
 
+  // Demo endpoint that exercises the limiter.
+  app.get('/api/ping', async () => ({ pong: true }));
+
   app.addHook('onClose', async () => {
     await store.close();
   });
 
-  return { app, store };
+  return { app, store, limiter };
 }
 
 async function main() {
@@ -36,11 +61,11 @@ async function main() {
   try {
     await store.connect();
   } catch (err) {
-    logger.warn({ err: err.message }, 'redis not reachable at startup (continuing)');
+    logger.warn({ err: err.message }, 'redis not reachable at startup (continuing degraded)');
   }
 
   await app.listen({ port: config.port, host: config.host });
-  logger.info({ port: config.port, host: config.host }, 'server listening');
+  logger.info({ port: config.port, host: config.host, failMode: config.failMode }, 'server listening');
 
   const shutdown = async (signal) => {
     logger.info({ signal }, 'shutting down');
@@ -51,7 +76,6 @@ async function main() {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-// Run only when invoked directly (not when imported by tests).
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith('server.js')) {
   main().catch((err) => {
     logger.error({ err: err.message }, 'fatal startup error');
