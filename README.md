@@ -81,6 +81,26 @@ Exceed the limit and you get `429 Too Many Requests` with a `Retry-After` header
 
 ---
 
+## Live dashboard (30-second demo)
+
+A real-time WebSocket dashboard shows which keys/IPs are being throttled and by
+how much — no AI, just a live feed of decisions.
+
+```bash
+npm start                 # terminal 1
+npm run demo:traffic      # terminal 2 — steady traffic + one bursting "attacker" IP
+# open http://localhost:3000/dashboard
+```
+
+Within seconds you'll see one IP cross its limit and start getting blocked, with
+live totals, a top-keys table (sorted by blocked count), and a scrolling event
+feed. It's fed in-process from the same `emit` hook the adaptive layer uses, and
+updates are **batched** over the socket so request rate ≠ frame rate. Works even
+with Redis down (degraded path still emits). See
+[src/dashboard/](src/dashboard/).
+
+---
+
 ## Using it in your app
 
 ### Fastify
@@ -149,6 +169,8 @@ New keys get the default limit until enough history accumulates (cold start).
 | `GET /health` | Liveness |
 | `GET /ready` | Readiness (Redis reachable) |
 | `GET /metrics` | Prometheus metrics |
+| `GET /dashboard` | Live WebSocket dashboard |
+| `GET /ws/feed` | Dashboard event stream (WebSocket) |
 | `GET /api/ping` | Demo, rate-limited |
 | `GET /admin/limits` | Current suggested/overridden limits |
 | `PUT /admin/limits/:key` | Manual override (`{ "limit": 25 }`) |

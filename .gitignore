@@ -6,3 +6,6 @@ coverage/
 dist/
 bench/results/*.json
 .DS_Store
+
+# local-only example/scratch notes
+[Ii]nterview.md

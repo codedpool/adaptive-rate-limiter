@@ -12,6 +12,8 @@ import { SuggestionStore } from './adaptive/suggestionStore.js';
 import { AdaptiveOverrides } from './adaptive/overrides.js';
 import { adminRoutes } from './admin/routes.js';
 import * as metrics from './observability/metrics.js';
+import { DashboardHub } from './dashboard/hub.js';
+import { dashboardPlugin } from './dashboard/routes.js';
 
 /**
  * Application entrypoint. Wires the HTTP server, Redis-backed limiter (with
@@ -42,16 +44,35 @@ export async function buildServer() {
   });
   if (config.adaptiveEnabled) overrides.start();
 
+  // Live dashboard fan-out hub, fed in-process by the middleware emit hook.
+  const hub = new DashboardHub();
+
   app.decorate('store', store);
   app.decorate('limiter', limiter);
   app.decorate('suggestions', suggestions);
+  app.decorate('hub', hub);
 
   // Control-plane and probe routes must never be rate limited.
   const baseResolve = makeRuleResolver({ defaultRule: defaultRuleFromConfig(config.defaultRule) });
   const resolveRule = (req) => {
     const url = req.routeOptions?.url || req.url;
-    if (url === '/health' || url === '/ready' || url === '/metrics' || url.startsWith('/admin')) return null;
+    if (
+      url === '/health' ||
+      url === '/ready' ||
+      url === '/metrics' ||
+      url === '/dashboard' ||
+      url.startsWith('/ws') ||
+      url.startsWith('/admin')
+    ) {
+      return null;
+    }
     return baseResolve(req);
+  };
+
+  // One emit hook feeds both the adaptive stream and the live dashboard hub.
+  const emit = (event) => {
+    if (config.adaptiveEnabled) producer.emit(event);
+    hub.onEvent(event);
   };
 
   await app.register(rateLimitPlugin, {
@@ -59,7 +80,7 @@ export async function buildServer() {
     resolveRule,
     metrics,
     overrides: config.adaptiveEnabled ? overrides : undefined,
-    emit: config.adaptiveEnabled ? (event) => producer.emit(event) : undefined,
+    emit,
   });
 
   await app.register(adminRoutes, {
@@ -68,6 +89,8 @@ export async function buildServer() {
     adminToken: config.adminToken,
     logger,
   });
+
+  await app.register(dashboardPlugin, { hub });
 
   app.get('/health', async () => ({ status: 'ok' }));
   app.get('/ready', async (_req, reply) => {
@@ -87,10 +110,11 @@ export async function buildServer() {
 
   app.addHook('onClose', async () => {
     overrides.stop();
+    hub.stop();
     await store.close();
   });
 
-  return { app, store, limiter, overrides };
+  return { app, store, limiter, overrides, hub };
 }
 
 async function main() {

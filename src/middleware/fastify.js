@@ -44,6 +44,9 @@ async function rateLimit(app, opts) {
         route: `${req.method} ${req.routeOptions?.url || req.url}`,
         allowed: decision.allowed,
         degraded: decision.degraded,
+        limit: decision.limit,
+        remaining: Math.max(0, decision.remaining),
+        retryAfterMs: decision.retryAfterMs,
         ts: Date.now(),
       });
     }

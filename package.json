@@ -15,9 +15,11 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "bench": "node bench/run.js"
+    "bench": "node bench/run.js",
+    "demo:traffic": "node scripts/traffic.js"
   },
   "dependencies": {
+    "@fastify/websocket": "^8.3.1",
     "fastify": "^4.28.1",
     "fastify-plugin": "^4.5.1",
     "ioredis": "^5.4.1",

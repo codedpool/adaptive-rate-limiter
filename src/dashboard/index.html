@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rate Limiter — live</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --panel: #161b22;
+        --border: #30363d;
+        --fg: #e6edf3;
+        --muted: #8b949e;
+        --ok: #3fb950;
+        --block: #f85149;
+        --accent: #58a6ff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        gap: 16px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+      #conn { font-size: 12px; color: var(--muted); }
+      #conn.up { color: var(--ok); }
+      #conn.down { color: var(--block); }
+      .cards { display: flex; gap: 12px; padding: 16px 20px; flex-wrap: wrap; }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 16px;
+        min-width: 130px;
+      }
+      .card .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+      .card .value { font-size: 24px; font-weight: 600; margin-top: 4px; }
+      .value.block { color: var(--block); }
+      .value.ok { color: var(--ok); }
+      main { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; padding: 0 20px 24px; }
+      @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+      section h2 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+      table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+      th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+      th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
+      td.num { text-align: right; font-variant-numeric: tabular-nums; }
+      tr.hot td.blocked { color: var(--block); font-weight: 600; }
+      #feed { height: 360px; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+      .ev { display: flex; gap: 10px; padding: 2px 0; border-bottom: 1px solid #21262d; }
+      .ev .badge { width: 56px; flex: none; }
+      .ev.blocked .badge { color: var(--block); }
+      .ev.allowed .badge { color: var(--ok); }
+      .ev .k { color: var(--accent); flex: 1; overflow: hidden; text-overflow: ellipsis; }
+      .ev .meta { color: var(--muted); }
+      .hint { color: var(--muted); padding: 0 20px 20px; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Rate Limiter — live feed</h1>
+      <span id="conn" class="down">connecting…</span>
+    </header>
+
+    <div class="cards">
+      <div class="card"><div class="label">Allowed</div><div id="t-allowed" class="value ok">0</div></div>
+      <div class="card"><div class="label">Blocked</div><div id="t-blocked" class="value block">0</div></div>
+      <div class="card"><div class="label">Block rate</div><div id="t-rate" class="value">0%</div></div>
+      <div class="card"><div class="label">Active keys</div><div id="t-keys" class="value">0</div></div>
+    </div>
+
+    <main>
+      <section>
+        <h2>Top keys (by blocked)</h2>
+        <table>
+          <thead>
+            <tr><th>Key / IP</th><th class="num">Allowed</th><th class="num">Blocked</th><th class="num">Limit</th><th class="num">Remaining</th></tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </section>
+      <section>
+        <h2>Recent events</h2>
+        <div id="feed"></div>
+      </section>
+    </main>
+
+    <p class="hint">Generate traffic with <code>npm run demo:traffic</code> and watch one IP get throttled.</p>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const conn = $('conn');
+      let stats = [];
+      const feed = [];
+
+      function render() {
+        const allowed = window.__totals?.allowed || 0;
+        const blocked = window.__totals?.blocked || 0;
+        const total = allowed + blocked;
+        $('t-allowed').textContent = allowed.toLocaleString();
+        $('t-blocked').textContent = blocked.toLocaleString();
+        $('t-rate').textContent = total ? ((blocked / total) * 100).toFixed(1) + '%' : '0%';
+        $('t-keys').textContent = stats.length;
+
+        $('rows').innerHTML = stats
+          .map(
+            (s) =>
+              `<tr class="${s.blocked > 0 ? 'hot' : ''}"><td>${esc(s.key)}</td>` +
+              `<td class="num">${s.allowed}</td><td class="num blocked">${s.blocked}</td>` +
+              `<td class="num">${s.limit ?? '-'}</td><td class="num">${s.remaining ?? '-'}</td></tr>`,
+          )
+          .join('');
+
+        $('feed').innerHTML = feed
+          .map((e) => {
+            const t = new Date(e.ts).toLocaleTimeString();
+            const cls = e.allowed ? 'allowed' : 'blocked';
+            const badge = e.allowed ? 'ALLOW' : 'BLOCK';
+            const extra = e.allowed ? `rem ${e.remaining}` : `retry ${Math.ceil((e.retryAfterMs || 0) / 1000)}s`;
+            return `<div class="ev ${cls}"><span class="badge">${badge}</span><span class="k">${esc(e.key)}</span><span class="meta">${extra} · ${t}</span></div>`;
+          })
+          .join('');
+      }
+
+      function esc(s) {
+        return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      }
+
+      function pushEvents(events) {
+        for (const e of events) {
+          feed.unshift(e);
+          if (feed.length > 60) feed.pop();
+        }
+      }
+
+      function connect() {
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${proto}://${location.host}/ws/feed`);
+        ws.onopen = () => { conn.textContent = '● connected'; conn.className = 'up'; };
+        ws.onclose = () => { conn.textContent = '● disconnected — retrying'; conn.className = 'down'; setTimeout(connect, 1000); };
+        ws.onmessage = (msg) => {
+          const data = JSON.parse(msg.data);
+          window.__totals = data.totals;
+          if (data.stats) stats = data.stats;
+          if (data.type === 'snapshot' && data.recent) pushEvents([...data.recent].reverse());
+          if (data.type === 'batch' && data.events) pushEvents(data.events);
+          render();
+        };
+      }
+      connect();
+    </script>
+  </body>
+</html>
