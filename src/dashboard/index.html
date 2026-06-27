@@ -67,6 +67,22 @@
       .conn.up .dot { background: var(--flow); animation: ping 2s infinite; }
       .conn.down { color: var(--heat); }
       .conn.down .dot { background: var(--heat); }
+      .btn {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        color: #0a0a0b;
+        background: var(--flow);
+        border: 1px solid var(--flow);
+        padding: 5px 13px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: filter 0.15s ease, background 0.15s ease, color 0.15s ease;
+      }
+      .btn:hover { filter: brightness(1.08); }
+      .btn:focus-visible { outline: 2px solid var(--ink-bright); outline-offset: 2px; }
+      .btn.on { background: transparent; color: var(--heat); border-color: var(--heat); }
       @keyframes ping {
         0% { box-shadow: 0 0 0 0 rgba(245, 181, 74, 0.5); }
         70% { box-shadow: 0 0 0 6px rgba(245, 181, 74, 0); }
@@ -172,6 +188,7 @@
       <span class="seg">· live control</span>
       <span class="grow"></span>
       <span class="seg">clock <b id="clock">--:--:--</b></span>
+      <button id="demo" class="btn" type="button">▶ start demo</button>
       <span class="conn down" id="conn"><span class="dot"></span><span id="conn-text">connecting</span></span>
     </div>
 
@@ -198,7 +215,7 @@
         <section>
           <div class="panel-head"><span class="eyebrow">Throttled keys · by intensity</span><span class="count" id="k-count"></span></div>
           <div id="keys" class="keys">
-            <div class="empty">No traffic yet — run <code>npm run demo:traffic</code></div>
+            <div class="empty">No traffic yet — press <code>▶ start demo</code> above</div>
           </div>
         </section>
         <section>
@@ -234,7 +251,7 @@
 
         const keysEl = $('keys');
         if (!stats.length) {
-          keysEl.innerHTML = '<div class="empty">No traffic yet — run <code>npm run demo:traffic</code></div>';
+          keysEl.innerHTML = '<div class="empty">No traffic yet — press <code>▶ start demo</code> above</div>';
         } else {
           keysEl.innerHTML = stats
             .slice(0, 12)
@@ -383,6 +400,31 @@
           render();
         };
       }
+
+      // ---- start/stop demo traffic (server-side simulator) ----
+      const demoBtn = $('demo');
+      let demoOn = false;
+      function setDemo(on) {
+        demoOn = on;
+        demoBtn.textContent = on ? '■ stop demo' : '▶ start demo';
+        demoBtn.classList.toggle('on', on);
+      }
+      demoBtn.addEventListener('click', async () => {
+        demoBtn.disabled = true;
+        try {
+          const res = await fetch(demoOn ? '/demo/stop' : '/demo/start', { method: 'POST' });
+          setDemo(!!(await res.json()).running);
+        } catch {
+          /* ignore */
+        } finally {
+          demoBtn.disabled = false;
+        }
+      });
+      // sync button with current server state (another visitor may have started it)
+      fetch('/demo/status')
+        .then((r) => r.json())
+        .then((j) => setDemo(!!j.running))
+        .catch(() => {});
 
       resize();
       window.addEventListener('resize', resize);

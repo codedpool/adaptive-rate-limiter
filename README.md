@@ -87,10 +87,15 @@ A real-time WebSocket dashboard shows which keys/IPs are being throttled and by
 how much — no AI, just a live feed of decisions.
 
 ```bash
-npm start                 # terminal 1
-npm run demo:traffic      # terminal 2 — steady traffic + one bursting "attacker" IP
-# open http://localhost:3000/dashboard
+npm start
+# open http://localhost:3000  →  click "▶ start demo"
 ```
+
+The **Start** button drives a server-side traffic simulator (steady traffic from
+several IPs plus one bursting "attacker") through the real limiter and into the
+dashboard — so the deployed URL is a self-contained demo with no terminal needed.
+It auto-stops after two minutes. (You can also generate load from a terminal with
+`npm run demo:traffic`.)
 
 Within seconds you'll see one IP cross its limit and start getting blocked, with
 live totals, a top-keys table (sorted by blocked count), and a scrolling event

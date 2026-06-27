@@ -14,6 +14,7 @@ import { adminRoutes } from './admin/routes.js';
 import * as metrics from './observability/metrics.js';
 import { DashboardHub } from './dashboard/hub.js';
 import { dashboardPlugin } from './dashboard/routes.js';
+import { DemoDriver } from './demo/driver.js';
 
 /**
  * Application entrypoint. Wires the HTTP server, Redis-backed limiter (with
@@ -63,6 +64,7 @@ export async function buildServer() {
       url === '/metrics' ||
       url === '/dashboard' ||
       url.startsWith('/ws') ||
+      url.startsWith('/demo') ||
       url.startsWith('/admin')
     ) {
       return null;
@@ -75,6 +77,10 @@ export async function buildServer() {
     if (config.adaptiveEnabled) producer.emit(event);
     hub.onEvent(event);
   };
+
+  // Server-side traffic simulator for the dashboard's Start button.
+  const demo = new DemoDriver({ limiter, emit, rule: defaultRuleFromConfig(config.defaultRule) });
+  app.decorate('demo', demo);
 
   await app.register(rateLimitPlugin, {
     limiter,
@@ -109,7 +115,19 @@ export async function buildServer() {
   // Demo endpoint that exercises the limiter.
   app.get('/api/ping', async () => ({ pong: true }));
 
+  // Dashboard "Start" button controls the server-side traffic simulator.
+  app.post('/demo/start', async () => {
+    demo.start();
+    return demo.status();
+  });
+  app.post('/demo/stop', async () => {
+    demo.stop();
+    return demo.status();
+  });
+  app.get('/demo/status', async () => demo.status());
+
   app.addHook('onClose', async () => {
+    demo.stop();
     overrides.stop();
     hub.closeAll(); // terminate dashboard WebSockets so close doesn't hang
     await store.close();
