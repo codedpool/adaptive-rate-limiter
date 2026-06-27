@@ -2,6 +2,7 @@ services:
   redis:
     image: redis:7.4-alpine
     command: ['redis-server', '--appendonly', 'no', '--save', '']
+    restart: unless-stopped
     ports:
       - '6379:6379'
     healthcheck:
