@@ -3,158 +3,341 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Rate Limiter — live</title>
+    <title>Rate Limiter · live control</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
-        --bg: #0d1117;
-        --panel: #161b22;
-        --border: #30363d;
-        --fg: #e6edf3;
-        --muted: #8b949e;
-        --ok: #3fb950;
-        --block: #f85149;
-        --accent: #58a6ff;
+        --void: #0a0e14;
+        --panel: #111722;
+        --panel-2: #0e1420;
+        --line: #1d2738;
+        --ink: #e8eef7;
+        --mute: #6b7a90;
+        --flow: #4cc9f0;
+        --heat: #ff5d5d;
+        --warn: #ffb454;
+        --display: 'Space Grotesk', system-ui, -apple-system, Segoe UI, sans-serif;
+        --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
       * { box-sizing: border-box; }
+      html, body { height: 100%; }
       body {
         margin: 0;
-        background: var(--bg);
-        color: var(--fg);
-        font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        background:
+          radial-gradient(1200px 600px at 80% -10%, rgba(76, 201, 240, 0.06), transparent 60%),
+          radial-gradient(900px 500px at -10% 110%, rgba(255, 93, 93, 0.05), transparent 55%),
+          var(--void);
+        color: var(--ink);
+        font-family: var(--mono);
+        font-size: 13px;
+        -webkit-font-smoothing: antialiased;
       }
-      header {
+      .eyebrow {
+        font-family: var(--display);
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--mute);
+      }
+
+      /* ---- top bar ---- */
+      .topbar {
         display: flex;
-        align-items: baseline;
-        gap: 16px;
-        padding: 16px 20px;
-        border-bottom: 1px solid var(--border);
+        align-items: center;
+        gap: 14px;
+        padding: 16px 22px;
+        border-bottom: 1px solid var(--line);
       }
-      header h1 { font-size: 16px; margin: 0; font-weight: 600; }
-      #conn { font-size: 12px; color: var(--muted); }
-      #conn.up { color: var(--ok); }
-      #conn.down { color: var(--block); }
-      .cards { display: flex; gap: 12px; padding: 16px 20px; flex-wrap: wrap; }
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 12px 16px;
-        min-width: 130px;
+      .brand { display: flex; align-items: baseline; gap: 10px; }
+      .brand .mark {
+        font-family: var(--display);
+        font-weight: 700;
+        font-size: 16px;
+        letter-spacing: -0.01em;
       }
-      .card .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
-      .card .value { font-size: 24px; font-weight: 600; margin-top: 4px; }
-      .value.block { color: var(--block); }
-      .value.ok { color: var(--ok); }
-      main { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; padding: 0 20px 24px; }
-      @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-      section h2 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-      table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-      th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-      th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
-      td.num { text-align: right; font-variant-numeric: tabular-nums; }
-      tr.hot td.blocked { color: var(--block); font-weight: 600; }
-      #feed { height: 360px; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
-      .ev { display: flex; gap: 10px; padding: 2px 0; border-bottom: 1px solid #21262d; }
-      .ev .badge { width: 56px; flex: none; }
-      .ev.blocked .badge { color: var(--block); }
-      .ev.allowed .badge { color: var(--ok); }
-      .ev .k { color: var(--accent); flex: 1; overflow: hidden; text-overflow: ellipsis; }
-      .ev .meta { color: var(--muted); }
-      .hint { color: var(--muted); padding: 0 20px 20px; font-size: 12px; }
+      .brand .mark b { color: var(--flow); font-weight: 700; }
+      .brand .sub { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.2em; font-size: 10px; color: var(--mute); }
+      .spacer { flex: 1; }
+      .conn { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; color: var(--mute); }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mute); }
+      .conn.up .dot { background: var(--flow); box-shadow: 0 0 0 0 rgba(76, 201, 240, 0.5); animation: pulse 2s infinite; }
+      .conn.up { color: var(--flow); }
+      .conn.down .dot { background: var(--heat); }
+      .conn.down { color: var(--heat); }
+      @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0.45); }
+        70% { box-shadow: 0 0 0 7px rgba(76, 201, 240, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0); }
+      }
+
+      .wrap { max-width: 1180px; margin: 0 auto; padding: 22px; }
+
+      /* ---- hero: live pulse ---- */
+      .pulse {
+        position: relative;
+        background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px 18px 8px;
+        overflow: hidden;
+      }
+      .pulse-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+      .pulse-legend { display: flex; gap: 16px; font-size: 11px; color: var(--mute); }
+      .pulse-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+      .pulse canvas { display: block; width: 100%; height: 150px; }
+
+      /* ---- stat strip ---- */
+      .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+      .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+      .stat .v { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-top: 7px; font-variant-numeric: tabular-nums; }
+      .stat .v.flow { color: var(--flow); }
+      .stat .v.heat { color: var(--heat); }
+      .stat .v.warn { color: var(--warn); }
+
+      /* ---- two-column body ---- */
+      .grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; align-items: start; }
+      @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+      .card > h2 { margin: 0 0 14px; }
+
+      /* ---- key load bars ---- */
+      .keys { display: flex; flex-direction: column; gap: 11px; }
+      .keyrow { display: grid; grid-template-columns: 150px 1fr auto; gap: 12px; align-items: center; }
+      .keyrow .k { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+      .keyrow .k .lim { color: var(--mute); font-size: 10px; }
+      .track { position: relative; height: 12px; border-radius: 6px; background: #0c1119; border: 1px solid var(--line); overflow: hidden; }
+      .fill { position: absolute; inset: 0 auto 0 0; border-radius: 6px 0 0 6px; background: linear-gradient(90deg, var(--warn), var(--heat)); transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+      .keyrow .nums { font-size: 11px; color: var(--mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
+      .keyrow .nums b { color: var(--heat); }
+
+      /* ---- event feed ---- */
+      .feed { display: flex; flex-direction: column; gap: 0; max-height: 380px; overflow-y: auto; margin: -4px -4px 0; padding: 0 4px; }
+      .ev { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; padding: 6px 6px; border-bottom: 1px solid #161d2a; }
+      .ev .tag { font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 5px; text-align: center; }
+      .ev.allow .tag { color: var(--flow); background: rgba(76, 201, 240, 0.12); }
+      .ev.block .tag { color: var(--heat); background: rgba(255, 93, 93, 0.14); }
+      .ev .k { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+      .ev .meta { color: var(--mute); font-size: 11px; white-space: nowrap; }
+      .empty { color: var(--mute); padding: 26px 6px; text-align: center; font-size: 12px; }
+      .empty code { color: var(--flow); background: rgba(76, 201, 240, 0.1); padding: 1px 6px; border-radius: 4px; }
+
+      .feed::-webkit-scrollbar { width: 8px; }
+      .feed::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
+
+      @keyframes slidein { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+      .ev { animation: slidein 0.18s ease both; }
+
+      @media (prefers-reduced-motion: reduce) {
+        * { animation: none !important; transition: none !important; }
+      }
     </style>
   </head>
   <body>
-    <header>
-      <h1>Rate Limiter — live feed</h1>
-      <span id="conn" class="down">connecting…</span>
-    </header>
-
-    <div class="cards">
-      <div class="card"><div class="label">Allowed</div><div id="t-allowed" class="value ok">0</div></div>
-      <div class="card"><div class="label">Blocked</div><div id="t-blocked" class="value block">0</div></div>
-      <div class="card"><div class="label">Block rate</div><div id="t-rate" class="value">0%</div></div>
-      <div class="card"><div class="label">Active keys</div><div id="t-keys" class="value">0</div></div>
+    <div class="topbar">
+      <div class="brand">
+        <span class="mark">rate<b>·</b>limiter</span>
+        <span class="sub">live control</span>
+      </div>
+      <span class="spacer"></span>
+      <span id="conn" class="conn down"><span class="dot"></span><span id="conn-text">connecting…</span></span>
     </div>
 
-    <main>
-      <section>
-        <h2>Top keys (by blocked)</h2>
-        <table>
-          <thead>
-            <tr><th>Key / IP</th><th class="num">Allowed</th><th class="num">Blocked</th><th class="num">Limit</th><th class="num">Remaining</th></tr>
-          </thead>
-          <tbody id="rows"></tbody>
-        </table>
+    <div class="wrap">
+      <!-- SIGNATURE: live traffic pulse -->
+      <section class="pulse">
+        <div class="pulse-head">
+          <span class="eyebrow">throughput · last 90s</span>
+          <span class="pulse-legend">
+            <span><i style="background: var(--flow)"></i>allowed</span>
+            <span><i style="background: var(--heat)"></i>blocked</span>
+          </span>
+        </div>
+        <canvas id="scope"></canvas>
       </section>
-      <section>
-        <h2>Recent events</h2>
-        <div id="feed"></div>
-      </section>
-    </main>
 
-    <p class="hint">Generate traffic with <code>npm run demo:traffic</code> and watch one IP get throttled.</p>
+      <!-- stat strip -->
+      <section class="stats">
+        <div class="stat"><div class="eyebrow">Allowed</div><div id="t-allowed" class="v flow">0</div></div>
+        <div class="stat"><div class="eyebrow">Blocked</div><div id="t-blocked" class="v heat">0</div></div>
+        <div class="stat"><div class="eyebrow">Block rate</div><div id="t-rate" class="v">0%</div></div>
+        <div class="stat"><div class="eyebrow">Active keys</div><div id="t-keys" class="v">0</div></div>
+      </section>
+
+      <div class="grid">
+        <section class="card">
+          <h2 class="eyebrow">Throttled keys · by intensity</h2>
+          <div id="keys" class="keys">
+            <div class="empty">No traffic yet — run <code>npm run demo:traffic</code></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="eyebrow">Live event stream</h2>
+          <div id="feed" class="feed">
+            <div class="empty">Waiting for requests…</div>
+          </div>
+        </section>
+      </div>
+    </div>
 
     <script>
       const $ = (id) => document.getElementById(id);
-      const conn = $('conn');
+      const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n));
+      const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
       let stats = [];
       const feed = [];
+      window.__totals = { allowed: 0, blocked: 0 };
 
+      // ---- stat strip + tables ----
       function render() {
-        const allowed = window.__totals?.allowed || 0;
-        const blocked = window.__totals?.blocked || 0;
+        const { allowed, blocked } = window.__totals;
         const total = allowed + blocked;
-        $('t-allowed').textContent = allowed.toLocaleString();
-        $('t-blocked').textContent = blocked.toLocaleString();
-        $('t-rate').textContent = total ? ((blocked / total) * 100).toFixed(1) + '%' : '0%';
+        const rate = total ? (blocked / total) * 100 : 0;
+        $('t-allowed').textContent = fmt(allowed);
+        $('t-blocked').textContent = fmt(blocked);
+        const rEl = $('t-rate');
+        rEl.textContent = rate.toFixed(1) + '%';
+        rEl.className = 'v ' + (rate > 25 ? 'heat' : rate > 5 ? 'warn' : '');
         $('t-keys').textContent = stats.length;
 
-        $('rows').innerHTML = stats
-          .map(
-            (s) =>
-              `<tr class="${s.blocked > 0 ? 'hot' : ''}"><td>${esc(s.key)}</td>` +
-              `<td class="num">${s.allowed}</td><td class="num blocked">${s.blocked}</td>` +
-              `<td class="num">${s.limit ?? '-'}</td><td class="num">${s.remaining ?? '-'}</td></tr>`,
-          )
-          .join('');
+        const keysEl = $('keys');
+        if (!stats.length) {
+          keysEl.innerHTML = '<div class="empty">No traffic yet — run <code>npm run demo:traffic</code></div>';
+        } else {
+          keysEl.innerHTML = stats
+            .slice(0, 12)
+            .map((s) => {
+              const tot = s.allowed + s.blocked;
+              const pct = tot ? Math.round((s.blocked / tot) * 100) : 0;
+              return (
+                `<div class="keyrow"><div class="k">${esc(s.key)} <span class="lim">· lim ${s.limit ?? '-'}</span></div>` +
+                `<div class="track"><div class="fill" style="width:${pct}%"></div></div>` +
+                `<div class="nums"><b>${fmt(s.blocked)}</b> blk · ${fmt(s.allowed)} ok</div></div>`
+              );
+            })
+            .join('');
+        }
 
-        $('feed').innerHTML = feed
-          .map((e) => {
-            const t = new Date(e.ts).toLocaleTimeString();
-            const cls = e.allowed ? 'allowed' : 'blocked';
-            const badge = e.allowed ? 'ALLOW' : 'BLOCK';
-            const extra = e.allowed ? `rem ${e.remaining}` : `retry ${Math.ceil((e.retryAfterMs || 0) / 1000)}s`;
-            return `<div class="ev ${cls}"><span class="badge">${badge}</span><span class="k">${esc(e.key)}</span><span class="meta">${extra} · ${t}</span></div>`;
-          })
-          .join('');
-      }
-
-      function esc(s) {
-        return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        const feedEl = $('feed');
+        if (!feed.length) {
+          feedEl.innerHTML = '<div class="empty">Waiting for requests…</div>';
+        } else {
+          feedEl.innerHTML = feed
+            .map((e) => {
+              const t = new Date(e.ts).toLocaleTimeString();
+              const cls = e.allowed ? 'allow' : 'block';
+              const tag = e.allowed ? 'ALLOW' : 'BLOCK';
+              const extra = e.allowed ? `rem ${e.remaining}` : `retry ${Math.ceil((e.retryAfterMs || 0) / 1000)}s`;
+              return `<div class="ev ${cls}"><span class="tag">${tag}</span><span class="k">${esc(e.key)}</span><span class="meta">${extra} · ${t}</span></div>`;
+            })
+            .join('');
+        }
       }
 
       function pushEvents(events) {
         for (const e of events) {
           feed.unshift(e);
-          if (feed.length > 60) feed.pop();
+          if (feed.length > 50) feed.pop();
         }
       }
 
+      // ---- signature: oscilloscope of throughput ----
+      const canvas = $('scope');
+      const ctx = canvas.getContext('2d');
+      const N = 90; // seconds of history
+      const series = Array.from({ length: N }, () => ({ a: 0, b: 0 }));
+      let last = { allowed: 0, blocked: 0 };
+      let cssW = 0, cssH = 0;
+
+      function resize() {
+        const dpr = window.devicePixelRatio || 1;
+        cssW = canvas.clientWidth;
+        cssH = canvas.clientHeight;
+        canvas.width = cssW * dpr;
+        canvas.height = cssH * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function sample() {
+        const a = Math.max(0, window.__totals.allowed - last.allowed);
+        const b = Math.max(0, window.__totals.blocked - last.blocked);
+        last = { ...window.__totals };
+        series.push({ a, b });
+        series.shift();
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, cssW, cssH);
+        const pad = 6;
+        const h = cssH - pad * 2;
+        const max = Math.max(1, ...series.map((s) => s.a + s.b));
+        const bw = cssW / N;
+
+        // baseline grid
+        ctx.strokeStyle = 'rgba(29,39,56,0.7)';
+        ctx.lineWidth = 1;
+        for (let g = 0; g <= 2; g++) {
+          const y = pad + (h * g) / 2;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(cssW, y);
+          ctx.stroke();
+        }
+
+        for (let i = 0; i < N; i++) {
+          const s = series[i];
+          const x = i * bw;
+          const total = s.a + s.b;
+          if (total === 0) continue;
+          const th = (total / max) * h;
+          const bh = (s.b / max) * h;
+          const ah = th - bh;
+          const recent = i > N - 4;
+          // allowed (flow) base
+          ctx.fillStyle = recent ? 'rgba(76,201,240,0.95)' : 'rgba(76,201,240,0.55)';
+          ctx.fillRect(x + 0.5, pad + h - ah, Math.max(1, bw - 1.2), ah);
+          // blocked (heat) stacked on top
+          if (bh > 0) {
+            ctx.fillStyle = recent ? 'rgba(255,93,93,0.98)' : 'rgba(255,93,93,0.7)';
+            ctx.fillRect(x + 0.5, pad + h - th, Math.max(1, bw - 1.2), bh);
+          }
+        }
+      }
+
+      function tick() {
+        sample();
+        render();
+        draw();
+      }
+
+      // ---- websocket ----
       function connect() {
         const proto = location.protocol === 'https:' ? 'wss' : 'ws';
         const ws = new WebSocket(`${proto}://${location.host}/ws/feed`);
-        ws.onopen = () => { conn.textContent = '● connected'; conn.className = 'up'; };
-        ws.onclose = () => { conn.textContent = '● disconnected — retrying'; conn.className = 'down'; setTimeout(connect, 1000); };
+        ws.onopen = () => { $('conn').className = 'conn up'; $('conn-text').textContent = 'connected'; };
+        ws.onclose = () => { $('conn').className = 'conn down'; $('conn-text').textContent = 'reconnecting…'; setTimeout(connect, 1000); };
         ws.onmessage = (msg) => {
           const data = JSON.parse(msg.data);
-          window.__totals = data.totals;
+          if (data.totals) window.__totals = data.totals;
           if (data.stats) stats = data.stats;
           if (data.type === 'snapshot' && data.recent) pushEvents([...data.recent].reverse());
           if (data.type === 'batch' && data.events) pushEvents(data.events);
           render();
         };
       }
+
+      resize();
+      window.addEventListener('resize', resize);
       connect();
+      render();
+      setInterval(tick, 1000);
     </script>
   </body>
 </html>
