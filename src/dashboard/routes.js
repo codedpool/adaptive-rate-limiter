@@ -32,8 +32,12 @@ export async function dashboardPlugin(app, opts) {
     socket.on('error', () => hub.removeClient(socket));
   });
 
-  app.get('/dashboard', async (_req, reply) => {
+  // Serve the UI at both the root and /dashboard so a single deployed URL
+  // (e.g. the Render service root) shows the dashboard with no separate frontend.
+  const serveHtml = async (_req, reply) => {
     reply.header('Content-Type', 'text/html; charset=utf-8');
     return HTML;
-  });
+  };
+  app.get('/', serveHtml);
+  app.get('/dashboard', serveHtml);
 }

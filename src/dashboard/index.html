@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Rate Limiter · live control</title>
+    <title>rate·limiter — live control</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -12,15 +12,14 @@
     />
     <style>
       :root {
-        --void: #0a0e14;
-        --panel: #111722;
-        --panel-2: #0e1420;
-        --line: #1d2738;
-        --ink: #e8eef7;
-        --mute: #6b7a90;
-        --flow: #4cc9f0;
-        --heat: #ff5d5d;
-        --warn: #ffb454;
+        --bg: #0a0a0b;
+        --ink: #f3c277;        /* amber phosphor — primary */
+        --ink-bright: #ffd79a;  /* brightest readouts */
+        --mute: #837a6c;        /* warm gray — labels */
+        --flow: #f5b54a;        /* allowed */
+        --heat: #ff5247;        /* blocked / alert (used sparingly) */
+        --line: rgba(245, 181, 74, 0.12);
+        --line-soft: rgba(245, 181, 74, 0.06);
         --display: 'Space Grotesk', system-ui, -apple-system, Segoe UI, sans-serif;
         --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
@@ -29,156 +28,181 @@
       body {
         margin: 0;
         background:
-          radial-gradient(1200px 600px at 80% -10%, rgba(76, 201, 240, 0.06), transparent 60%),
-          radial-gradient(900px 500px at -10% 110%, rgba(255, 93, 93, 0.05), transparent 55%),
-          var(--void);
+          radial-gradient(1100px 520px at 78% -8%, rgba(245, 181, 74, 0.05), transparent 60%),
+          radial-gradient(80% 60% at 50% 120%, rgba(255, 82, 71, 0.04), transparent 70%),
+          var(--bg);
         color: var(--ink);
         font-family: var(--mono);
         font-size: 13px;
+        line-height: 1.5;
         -webkit-font-smoothing: antialiased;
       }
       .eyebrow {
         font-family: var(--display);
         text-transform: uppercase;
-        letter-spacing: 0.18em;
+        letter-spacing: 0.22em;
         font-size: 10px;
         font-weight: 600;
         color: var(--mute);
       }
 
-      /* ---- top bar ---- */
-      .topbar {
+      /* ---- status line (terminal-style) ---- */
+      .status {
         display: flex;
         align-items: center;
-        gap: 14px;
-        padding: 16px 22px;
+        gap: 12px;
+        padding: 11px 22px;
         border-bottom: 1px solid var(--line);
+        font-size: 11px;
+        color: var(--mute);
       }
-      .brand { display: flex; align-items: baseline; gap: 10px; }
-      .brand .mark {
-        font-family: var(--display);
-        font-weight: 700;
-        font-size: 16px;
-        letter-spacing: -0.01em;
-      }
-      .brand .mark b { color: var(--flow); font-weight: 700; }
-      .brand .sub { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.2em; font-size: 10px; color: var(--mute); }
-      .spacer { flex: 1; }
-      .conn { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; color: var(--mute); }
-      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mute); }
-      .conn.up .dot { background: var(--flow); box-shadow: 0 0 0 0 rgba(76, 201, 240, 0.5); animation: pulse 2s infinite; }
+      .status .mark { font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: -0.01em; color: var(--ink-bright); }
+      .status .mark span { color: var(--flow); }
+      .status .seg { color: var(--mute); }
+      .status .seg b { color: var(--ink); font-weight: 500; }
+      .grow { flex: 1; }
+      .conn { display: inline-flex; align-items: center; gap: 7px; }
+      .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mute); }
       .conn.up { color: var(--flow); }
-      .conn.down .dot { background: var(--heat); }
+      .conn.up .dot { background: var(--flow); animation: ping 2s infinite; }
       .conn.down { color: var(--heat); }
-      @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0.45); }
-        70% { box-shadow: 0 0 0 7px rgba(76, 201, 240, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0); }
+      .conn.down .dot { background: var(--heat); }
+      @keyframes ping {
+        0% { box-shadow: 0 0 0 0 rgba(245, 181, 74, 0.5); }
+        70% { box-shadow: 0 0 0 6px rgba(245, 181, 74, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(245, 181, 74, 0); }
       }
 
-      .wrap { max-width: 1180px; margin: 0 auto; padding: 22px; }
+      .wrap { max-width: 1200px; margin: 0 auto; padding: 26px 22px 40px; }
 
-      /* ---- hero: live pulse ---- */
-      .pulse {
+      /* ---- signature: the scope ---- */
+      .scope-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; }
+      .scope-legend { display: flex; gap: 18px; font-size: 11px; color: var(--mute); }
+      .scope-legend i { display: inline-block; width: 18px; height: 3px; margin-right: 7px; vertical-align: 3px; border-radius: 2px; }
+      .scope-box {
         position: relative;
-        background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
         border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 16px 18px 8px;
-        overflow: hidden;
+        border-radius: 4px;
+        background: linear-gradient(180deg, rgba(245, 181, 74, 0.025), transparent 70%);
       }
-      .pulse-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-      .pulse-legend { display: flex; gap: 16px; font-size: 11px; color: var(--mute); }
-      .pulse-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
-      .pulse canvas { display: block; width: 100%; height: 150px; }
-
-      /* ---- stat strip ---- */
-      .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
-      .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
-      .stat .v { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-top: 7px; font-variant-numeric: tabular-nums; }
-      .stat .v.flow { color: var(--flow); }
-      .stat .v.heat { color: var(--heat); }
-      .stat .v.warn { color: var(--warn); }
-
-      /* ---- two-column body ---- */
-      .grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; align-items: start; }
-      @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
-      .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
-      .card > h2 { margin: 0 0 14px; }
-
-      /* ---- key load bars ---- */
-      .keys { display: flex; flex-direction: column; gap: 11px; }
-      .keyrow { display: grid; grid-template-columns: 150px 1fr auto; gap: 12px; align-items: center; }
-      .keyrow .k { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-      .keyrow .k .lim { color: var(--mute); font-size: 10px; }
-      .track { position: relative; height: 12px; border-radius: 6px; background: #0c1119; border: 1px solid var(--line); overflow: hidden; }
-      .fill { position: absolute; inset: 0 auto 0 0; border-radius: 6px 0 0 6px; background: linear-gradient(90deg, var(--warn), var(--heat)); transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
-      .keyrow .nums { font-size: 11px; color: var(--mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
-      .keyrow .nums b { color: var(--heat); }
-
-      /* ---- event feed ---- */
-      .feed { display: flex; flex-direction: column; gap: 0; max-height: 380px; overflow-y: auto; margin: -4px -4px 0; padding: 0 4px; }
-      .ev { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; padding: 6px 6px; border-bottom: 1px solid #161d2a; }
-      .ev .tag { font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 5px; text-align: center; }
-      .ev.allow .tag { color: var(--flow); background: rgba(76, 201, 240, 0.12); }
-      .ev.block .tag { color: var(--heat); background: rgba(255, 93, 93, 0.14); }
-      .ev .k { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-      .ev .meta { color: var(--mute); font-size: 11px; white-space: nowrap; }
-      .empty { color: var(--mute); padding: 26px 6px; text-align: center; font-size: 12px; }
-      .empty code { color: var(--flow); background: rgba(76, 201, 240, 0.1); padding: 1px 6px; border-radius: 4px; }
-
-      .feed::-webkit-scrollbar { width: 8px; }
-      .feed::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
-
-      @keyframes slidein { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
-      .ev { animation: slidein 0.18s ease both; }
-
-      @media (prefers-reduced-motion: reduce) {
-        * { animation: none !important; transition: none !important; }
+      .scope-box::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0, rgba(0, 0, 0, 0.18) 1px, transparent 2px, transparent 3px);
+        opacity: 0.35;
+        border-radius: 4px;
       }
+      #scope { display: block; width: 100%; height: 184px; }
+
+      /* ---- instrument readout cluster (no cards) ---- */
+      .readout {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        margin: 22px 0;
+      }
+      .cell { padding: 16px 20px; border-left: 1px solid var(--line-soft); }
+      .cell:first-child { border-left: none; }
+      .cell .v { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin-top: 9px; color: var(--ink-bright); font-variant-numeric: tabular-nums; }
+      .cell .v.flow { color: var(--flow); }
+      .cell .v.heat { color: var(--heat); }
+      .cell .v.warn { color: var(--ink-bright); }
+
+      /* ---- two-column instrument body ---- */
+      .cols { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 28px; align-items: start; }
+      @media (max-width: 900px) { .cols { grid-template-columns: 1fr; gap: 26px; } }
+      .panel-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+      .panel-head .count { font-size: 11px; color: var(--mute); }
+
+      /* ---- throttled keys: aligned data rows ---- */
+      .keys { display: flex; flex-direction: column; }
+      .krow {
+        display: grid;
+        grid-template-columns: 14px 168px 1fr 96px;
+        gap: 12px;
+        align-items: center;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--line-soft);
+      }
+      .krow .tick { width: 3px; height: 22px; border-radius: 2px; background: transparent; justify-self: start; }
+      .krow.hot .tick { background: var(--heat); }
+      .krow .key { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+      .krow .key small { color: var(--mute); }
+      .bar { display: flex; align-items: center; gap: 10px; }
+      .bar .track { position: relative; flex: 1; height: 5px; background: var(--line-soft); border-radius: 3px; overflow: hidden; }
+      .bar .fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--flow), var(--heat)); transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+      .bar .pct { width: 38px; text-align: right; font-size: 11px; color: var(--mute); font-variant-numeric: tabular-nums; }
+      .krow .nums { text-align: right; font-size: 11px; color: var(--mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
+      .krow .nums b { color: var(--heat); font-weight: 500; }
+
+      /* ---- event stream: log tail ---- */
+      .feed { max-height: 420px; overflow-y: auto; }
+      .line {
+        display: grid;
+        grid-template-columns: 74px 52px 1fr auto;
+        gap: 12px;
+        align-items: baseline;
+        padding: 5px 0;
+        border-bottom: 1px solid var(--line-soft);
+        font-size: 12px;
+        animation: drop 0.18s ease both;
+      }
+      .line .ts { color: var(--mute); font-size: 11px; }
+      .line .tag { font-weight: 700; font-size: 11px; letter-spacing: 0.04em; }
+      .line.allow .tag { color: var(--flow); }
+      .line.block .tag { color: var(--heat); }
+      .line .key { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .line .meta { color: var(--mute); font-size: 11px; white-space: nowrap; }
+      @keyframes drop { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+
+      .empty { color: var(--mute); padding: 30px 4px; text-align: center; font-size: 12px; }
+      .empty code { color: var(--flow); }
+      .feed::-webkit-scrollbar { width: 7px; }
+      .feed::-webkit-scrollbar-thumb { background: var(--line); border-radius: 7px; }
+
+      @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
     </style>
   </head>
   <body>
-    <div class="topbar">
-      <div class="brand">
-        <span class="mark">rate<b>·</b>limiter</span>
-        <span class="sub">live control</span>
-      </div>
-      <span class="spacer"></span>
-      <span id="conn" class="conn down"><span class="dot"></span><span id="conn-text">connecting…</span></span>
+    <div class="status">
+      <span class="mark">rate<span>·</span>limiter</span>
+      <span class="seg">· live control</span>
+      <span class="grow"></span>
+      <span class="seg">clock <b id="clock">--:--:--</b></span>
+      <span class="conn down" id="conn"><span class="dot"></span><span id="conn-text">connecting</span></span>
     </div>
 
     <div class="wrap">
-      <!-- SIGNATURE: live traffic pulse -->
-      <section class="pulse">
-        <div class="pulse-head">
-          <span class="eyebrow">throughput · last 90s</span>
-          <span class="pulse-legend">
-            <span><i style="background: var(--flow)"></i>allowed</span>
-            <span><i style="background: var(--heat)"></i>blocked</span>
-          </span>
-        </div>
-        <canvas id="scope"></canvas>
-      </section>
+      <!-- SIGNATURE -->
+      <div class="scope-head">
+        <span class="eyebrow">throughput / req · per second · last 90s</span>
+        <span class="scope-legend">
+          <span><i style="background: var(--flow)"></i>allowed</span>
+          <span><i style="background: var(--heat)"></i>blocked</span>
+        </span>
+      </div>
+      <div class="scope-box"><canvas id="scope"></canvas></div>
 
-      <!-- stat strip -->
-      <section class="stats">
-        <div class="stat"><div class="eyebrow">Allowed</div><div id="t-allowed" class="v flow">0</div></div>
-        <div class="stat"><div class="eyebrow">Blocked</div><div id="t-blocked" class="v heat">0</div></div>
-        <div class="stat"><div class="eyebrow">Block rate</div><div id="t-rate" class="v">0%</div></div>
-        <div class="stat"><div class="eyebrow">Active keys</div><div id="t-keys" class="v">0</div></div>
-      </section>
+      <!-- readout cluster -->
+      <div class="readout">
+        <div class="cell"><div class="eyebrow">Allowed</div><div id="t-allowed" class="v flow">0</div></div>
+        <div class="cell"><div class="eyebrow">Blocked</div><div id="t-blocked" class="v heat">0</div></div>
+        <div class="cell"><div class="eyebrow">Block rate</div><div id="t-rate" class="v">0%</div></div>
+        <div class="cell"><div class="eyebrow">Active keys</div><div id="t-keys" class="v">0</div></div>
+      </div>
 
-      <div class="grid">
-        <section class="card">
-          <h2 class="eyebrow">Throttled keys · by intensity</h2>
+      <div class="cols">
+        <section>
+          <div class="panel-head"><span class="eyebrow">Throttled keys · by intensity</span><span class="count" id="k-count"></span></div>
           <div id="keys" class="keys">
             <div class="empty">No traffic yet — run <code>npm run demo:traffic</code></div>
           </div>
         </section>
-
-        <section class="card">
-          <h2 class="eyebrow">Live event stream</h2>
+        <section>
+          <div class="panel-head"><span class="eyebrow">Event stream</span><span class="count">live</span></div>
           <div id="feed" class="feed">
             <div class="empty">Waiting for requests…</div>
           </div>
@@ -188,14 +212,14 @@
 
     <script>
       const $ = (id) => document.getElementById(id);
-      const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n));
+      const fmt = (n) => (n >= 10000 ? Math.round(n / 1000) + 'k' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n));
       const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const pad2 = (n) => String(n).padStart(2, '0');
 
       let stats = [];
       const feed = [];
       window.__totals = { allowed: 0, blocked: 0 };
 
-      // ---- stat strip + tables ----
       function render() {
         const { allowed, blocked } = window.__totals;
         const total = allowed + blocked;
@@ -206,6 +230,7 @@
         rEl.textContent = rate.toFixed(1) + '%';
         rEl.className = 'v ' + (rate > 25 ? 'heat' : rate > 5 ? 'warn' : '');
         $('t-keys').textContent = stats.length;
+        $('k-count').textContent = stats.length ? stats.length + ' keys' : '';
 
         const keysEl = $('keys');
         if (!stats.length) {
@@ -217,8 +242,9 @@
               const tot = s.allowed + s.blocked;
               const pct = tot ? Math.round((s.blocked / tot) * 100) : 0;
               return (
-                `<div class="keyrow"><div class="k">${esc(s.key)} <span class="lim">· lim ${s.limit ?? '-'}</span></div>` +
-                `<div class="track"><div class="fill" style="width:${pct}%"></div></div>` +
+                `<div class="krow ${pct > 0 ? 'hot' : ''}"><span class="tick"></span>` +
+                `<div class="key">${esc(s.key)} <small>lim ${s.limit ?? '-'}</small></div>` +
+                `<div class="bar"><div class="track"><div class="fill" style="width:${pct}%"></div></div><span class="pct">${pct}%</span></div>` +
                 `<div class="nums"><b>${fmt(s.blocked)}</b> blk · ${fmt(s.allowed)} ok</div></div>`
               );
             })
@@ -231,11 +257,12 @@
         } else {
           feedEl.innerHTML = feed
             .map((e) => {
-              const t = new Date(e.ts).toLocaleTimeString();
+              const d = new Date(e.ts);
+              const ts = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
               const cls = e.allowed ? 'allow' : 'block';
               const tag = e.allowed ? 'ALLOW' : 'BLOCK';
-              const extra = e.allowed ? `rem ${e.remaining}` : `retry ${Math.ceil((e.retryAfterMs || 0) / 1000)}s`;
-              return `<div class="ev ${cls}"><span class="tag">${tag}</span><span class="k">${esc(e.key)}</span><span class="meta">${extra} · ${t}</span></div>`;
+              const meta = e.allowed ? `rem ${e.remaining}` : `retry ${Math.ceil((e.retryAfterMs || 0) / 1000)}s`;
+              return `<div class="line ${cls}"><span class="ts">${ts}</span><span class="tag">${tag}</span><span class="key">${esc(e.key)}</span><span class="meta">${meta}</span></div>`;
             })
             .join('');
         }
@@ -248,10 +275,10 @@
         }
       }
 
-      // ---- signature: oscilloscope of throughput ----
+      // ---- the scope ----
       const canvas = $('scope');
       const ctx = canvas.getContext('2d');
-      const N = 90; // seconds of history
+      const N = 90;
       const series = Array.from({ length: N }, () => ({ a: 0, b: 0 }));
       let last = { allowed: 0, blocked: 0 };
       let cssW = 0, cssH = 0;
@@ -260,8 +287,8 @@
         const dpr = window.devicePixelRatio || 1;
         cssW = canvas.clientWidth;
         cssH = canvas.clientHeight;
-        canvas.width = cssW * dpr;
-        canvas.height = cssH * dpr;
+        canvas.width = Math.max(1, cssW * dpr);
+        canvas.height = Math.max(1, cssH * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
 
@@ -273,56 +300,80 @@
         series.shift();
       }
 
+      function trace(values, max, y0, h) {
+        const step = cssW / (N - 1);
+        ctx.beginPath();
+        ctx.moveTo(0, y0);
+        for (let i = 0; i < N; i++) ctx.lineTo(i * step, y0 - (values[i] / max) * h);
+        ctx.lineTo(cssW, y0);
+        ctx.closePath();
+      }
+
       function draw() {
         ctx.clearRect(0, 0, cssW, cssH);
-        const pad = 6;
+        const pad = 8;
         const h = cssH - pad * 2;
-        const max = Math.max(1, ...series.map((s) => s.a + s.b));
-        const bw = cssW / N;
+        const y0 = pad + h;
+        const totals = series.map((s) => s.a + s.b);
+        const blocked = series.map((s) => s.b);
+        const max = Math.max(4, ...totals);
 
-        // baseline grid
-        ctx.strokeStyle = 'rgba(29,39,56,0.7)';
+        // graticule
+        ctx.strokeStyle = 'rgba(245,181,74,0.08)';
         ctx.lineWidth = 1;
-        for (let g = 0; g <= 2; g++) {
-          const y = pad + (h * g) / 2;
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(cssW, y);
-          ctx.stroke();
+        for (let g = 1; g < 4; g++) {
+          const y = pad + (h * g) / 4;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cssW, y); ctx.stroke();
+        }
+        for (let g = 1; g < 12; g++) {
+          const x = (cssW * g) / 12;
+          ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, y0); ctx.stroke();
         }
 
+        // allowed (amber) area + trace
+        trace(totals, max, y0, h);
+        let grad = ctx.createLinearGradient(0, pad, 0, y0);
+        grad.addColorStop(0, 'rgba(245,181,74,0.30)');
+        grad.addColorStop(1, 'rgba(245,181,74,0.02)');
+        ctx.fillStyle = grad; ctx.fill();
+        ctx.beginPath();
+        const step = cssW / (N - 1);
         for (let i = 0; i < N; i++) {
-          const s = series[i];
-          const x = i * bw;
-          const total = s.a + s.b;
-          if (total === 0) continue;
-          const th = (total / max) * h;
-          const bh = (s.b / max) * h;
-          const ah = th - bh;
-          const recent = i > N - 4;
-          // allowed (flow) base
-          ctx.fillStyle = recent ? 'rgba(76,201,240,0.95)' : 'rgba(76,201,240,0.55)';
-          ctx.fillRect(x + 0.5, pad + h - ah, Math.max(1, bw - 1.2), ah);
-          // blocked (heat) stacked on top
-          if (bh > 0) {
-            ctx.fillStyle = recent ? 'rgba(255,93,93,0.98)' : 'rgba(255,93,93,0.7)';
-            ctx.fillRect(x + 0.5, pad + h - th, Math.max(1, bw - 1.2), bh);
-          }
+          const x = i * step, y = y0 - (totals[i] / max) * h;
+          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
         }
+        ctx.strokeStyle = 'rgba(245,181,74,0.9)';
+        ctx.lineWidth = 1.5; ctx.shadowColor = 'rgba(245,181,74,0.6)'; ctx.shadowBlur = 8;
+        ctx.stroke(); ctx.shadowBlur = 0;
+
+        // blocked (red) area
+        trace(blocked, max, y0, h);
+        grad = ctx.createLinearGradient(0, pad, 0, y0);
+        grad.addColorStop(0, 'rgba(255,82,71,0.38)');
+        grad.addColorStop(1, 'rgba(255,82,71,0.03)');
+        ctx.fillStyle = grad; ctx.fill();
+        ctx.beginPath();
+        for (let i = 0; i < N; i++) {
+          const x = i * step, y = y0 - (blocked[i] / max) * h;
+          i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(255,82,71,0.95)';
+        ctx.lineWidth = 1.5; ctx.shadowColor = 'rgba(255,82,71,0.6)'; ctx.shadowBlur = 8;
+        ctx.stroke(); ctx.shadowBlur = 0;
       }
 
-      function tick() {
-        sample();
-        render();
-        draw();
+      function clock() {
+        const d = new Date();
+        $('clock').textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
       }
 
-      // ---- websocket ----
+      function tick() { sample(); render(); draw(); clock(); }
+
       function connect() {
         const proto = location.protocol === 'https:' ? 'wss' : 'ws';
         const ws = new WebSocket(`${proto}://${location.host}/ws/feed`);
         ws.onopen = () => { $('conn').className = 'conn up'; $('conn-text').textContent = 'connected'; };
-        ws.onclose = () => { $('conn').className = 'conn down'; $('conn-text').textContent = 'reconnecting…'; setTimeout(connect, 1000); };
+        ws.onclose = () => { $('conn').className = 'conn down'; $('conn-text').textContent = 'reconnecting'; setTimeout(connect, 1000); };
         ws.onmessage = (msg) => {
           const data = JSON.parse(msg.data);
           if (data.totals) window.__totals = data.totals;
@@ -335,6 +386,7 @@
 
       resize();
       window.addEventListener('resize', resize);
+      clock();
       connect();
       render();
       setInterval(tick, 1000);

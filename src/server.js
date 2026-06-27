@@ -57,6 +57,7 @@ export async function buildServer() {
   const resolveRule = (req) => {
     const url = req.routeOptions?.url || req.url;
     if (
+      url === '/' ||
       url === '/health' ||
       url === '/ready' ||
       url === '/metrics' ||

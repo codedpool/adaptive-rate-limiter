@@ -1,0 +1,22 @@
+# Render blueprint — deploy as a single web service.
+# The dashboard, API, metrics, and WebSocket all run on one service/URL, so there
+# is no separate frontend to deploy. Render injects PORT; the app binds 0.0.0.0.
+#
+# Redis is optional: with no REDIS_URL the limiter fails open to a per-node
+# in-memory limiter and the dashboard still works. Set REDIS_URL (Render Key
+# Value, Upstash, etc.) for true distributed limits and the adaptive worker.
+services:
+  - type: web
+    name: adaptive-rate-limiter
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: '20'
+      - key: RL_ADMIN_TOKEN
+        generateValue: true # protects /admin/* with a generated bearer token
+      # - key: REDIS_URL
+      #   sync: false        # set in the dashboard to enable distributed limits
