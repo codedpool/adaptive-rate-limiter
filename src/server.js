@@ -7,6 +7,9 @@ import { Limiter } from './core/limiter.js';
 import { CircuitBreaker } from './core/circuitBreaker.js';
 import { rateLimitPlugin } from './middleware/fastify.js';
 import { makeRuleResolver, defaultRuleFromConfig } from './middleware/rules.js';
+import { StreamProducer } from './adaptive/producer.js';
+import { SuggestionStore } from './adaptive/suggestionStore.js';
+import { AdaptiveOverrides } from './adaptive/overrides.js';
 
 /**
  * Application entrypoint. Wires the HTTP server, Redis-backed limiter (with
@@ -25,8 +28,21 @@ export async function buildServer() {
     onDegraded: (info) => logger.warn(info, 'rate limiter degraded to fallback'),
   });
 
+  // Adaptive layer (advisory, off the hot path): emit events to a stream and
+  // serve worker-produced limit suggestions from an in-memory cache.
+  const producer = new StreamProducer(store.client, {
+    streamKey: config.streamKey,
+    maxLen: config.streamMaxLen,
+  });
+  const suggestions = new SuggestionStore(store.client);
+  const overrides = new AdaptiveOverrides(suggestions, {
+    onError: (info) => logger.debug(info, 'overrides refresh failed'),
+  });
+  if (config.adaptiveEnabled) overrides.start();
+
   app.decorate('store', store);
   app.decorate('limiter', limiter);
+  app.decorate('suggestions', suggestions);
 
   // Probes must never be rate limited.
   const resolveRule = makeRuleResolver({
@@ -37,7 +53,12 @@ export async function buildServer() {
     },
   });
 
-  await app.register(rateLimitPlugin, { limiter, resolveRule });
+  await app.register(rateLimitPlugin, {
+    limiter,
+    resolveRule,
+    overrides: config.adaptiveEnabled ? overrides : undefined,
+    emit: config.adaptiveEnabled ? (event) => producer.emit(event) : undefined,
+  });
 
   app.get('/health', async () => ({ status: 'ok' }));
   app.get('/ready', async (_req, reply) => {
@@ -50,10 +71,11 @@ export async function buildServer() {
   app.get('/api/ping', async () => ({ pong: true }));
 
   app.addHook('onClose', async () => {
+    overrides.stop();
     await store.close();
   });
 
-  return { app, store, limiter };
+  return { app, store, limiter, overrides };
 }
 
 async function main() {
