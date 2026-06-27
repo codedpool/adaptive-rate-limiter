@@ -29,6 +29,10 @@ const ConfigSchema = z.object({
   streamMaxLen: z.coerce.number().int().positive().default(100_000),
   adaptiveEnabled: boolish(true),
 
+  // If set, admin endpoints require `Authorization: Bearer <token>`. Empty in
+  // dev leaves them open (a warning is logged).
+  adminToken: z.string().default(''),
+
   logLevel: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 
@@ -46,6 +50,7 @@ function build(env = process.env) {
     streamKey: env.RL_STREAM_KEY,
     streamMaxLen: env.RL_STREAM_MAXLEN,
     adaptiveEnabled: env.RL_ADAPTIVE_ENABLED,
+    adminToken: env.RL_ADMIN_TOKEN,
     logLevel: env.LOG_LEVEL,
   });
 

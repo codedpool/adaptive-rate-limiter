@@ -10,6 +10,8 @@ import { makeRuleResolver, defaultRuleFromConfig } from './middleware/rules.js';
 import { StreamProducer } from './adaptive/producer.js';
 import { SuggestionStore } from './adaptive/suggestionStore.js';
 import { AdaptiveOverrides } from './adaptive/overrides.js';
+import { adminRoutes } from './admin/routes.js';
+import * as metrics from './observability/metrics.js';
 
 /**
  * Application entrypoint. Wires the HTTP server, Redis-backed limiter (with
@@ -44,27 +46,40 @@ export async function buildServer() {
   app.decorate('limiter', limiter);
   app.decorate('suggestions', suggestions);
 
-  // Probes must never be rate limited.
-  const resolveRule = makeRuleResolver({
-    defaultRule: defaultRuleFromConfig(config.defaultRule),
-    routes: {
-      'GET /health': null,
-      'GET /ready': null,
-    },
-  });
+  // Control-plane and probe routes must never be rate limited.
+  const baseResolve = makeRuleResolver({ defaultRule: defaultRuleFromConfig(config.defaultRule) });
+  const resolveRule = (req) => {
+    const url = req.routeOptions?.url || req.url;
+    if (url === '/health' || url === '/ready' || url === '/metrics' || url.startsWith('/admin')) return null;
+    return baseResolve(req);
+  };
 
   await app.register(rateLimitPlugin, {
     limiter,
     resolveRule,
+    metrics,
     overrides: config.adaptiveEnabled ? overrides : undefined,
     emit: config.adaptiveEnabled ? (event) => producer.emit(event) : undefined,
+  });
+
+  await app.register(adminRoutes, {
+    prefix: '/admin',
+    suggestions,
+    adminToken: config.adminToken,
+    logger,
   });
 
   app.get('/health', async () => ({ status: 'ok' }));
   app.get('/ready', async (_req, reply) => {
     const redisOk = await store.ping();
+    metrics.redisUp.set(redisOk ? 1 : 0);
     if (!redisOk) return reply.code(503).send({ status: 'not_ready', redis: false });
     return { status: 'ready', redis: true };
+  });
+
+  app.get('/metrics', async (_req, reply) => {
+    reply.header('Content-Type', metrics.metricsContentType);
+    return metrics.metricsText();
   });
 
   // Demo endpoint that exercises the limiter.

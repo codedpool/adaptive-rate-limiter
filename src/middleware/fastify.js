@@ -20,7 +20,7 @@ import { ipKeyGenerator } from './keys.js';
  * @param {boolean} [opts.enabled]
  */
 async function rateLimit(app, opts) {
-  const { limiter, resolveRule, keyGenerator = ipKeyGenerator, emit, overrides, enabled = true } = opts;
+  const { limiter, resolveRule, keyGenerator = ipKeyGenerator, emit, overrides, metrics, enabled = true } = opts;
   if (!enabled) return;
   if (!limiter || !resolveRule) throw new Error('rateLimitPlugin requires { limiter, resolveRule }');
 
@@ -31,7 +31,9 @@ async function rateLimit(app, opts) {
     const key = keyGenerator(req);
     // Apply any adaptive suggestion for this key (advisory, served from cache).
     const rule = overrides ? overrides.effectiveRule(baseRule, key) : baseRule;
+    const start = process.hrtime.bigint();
     const decision = await limiter.check(key, rule);
+    if (metrics) metrics.recordDecision(decision, Number(process.hrtime.bigint() - start) / 1e9);
 
     const headers = rateLimitHeaders(decision);
     for (const [h, v] of Object.entries(headers)) reply.header(h, v);
