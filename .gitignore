@@ -7,5 +7,7 @@ dist/
 bench/results/*.json
 .DS_Store
 
-# local-only example/scratch notes
-[Ii]nterview.md
+# local-only interview prep / scratch notes — keep these out of the repo
+*interview*.md
+*Interview*.md
+*INTERVIEW*.md
