@@ -6,7 +6,7 @@
  * so each fake IP gets its own bucket.
  *
  * Run the server first, then: `npm run demo:traffic`
- * Open http://localhost:3000/dashboard
+ * Open the dashboard at the server root, e.g. http://localhost:3000
  */
 const TARGET = process.env.TARGET || 'http://localhost:3000/api/ping';
 const NORMAL = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '203.0.113.7', '198.51.100.4'];
@@ -30,5 +30,6 @@ setInterval(() => {
   for (let i = 0; i < 60; i++) hit(ATTACKER);
 }, 1000);
 
+const dashboardUrl = TARGET.replace(/\/api\/ping\/?$/, '') || TARGET;
 // eslint-disable-next-line no-console
-console.log(`generating traffic against ${TARGET}\nopen the dashboard: ${TARGET.replace(/\/api\/ping$/, '/dashboard')}`);
+console.log(`generating traffic against ${TARGET}\nopen the dashboard: ${dashboardUrl}`);
