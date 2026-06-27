@@ -111,7 +111,7 @@ export async function buildServer() {
 
   app.addHook('onClose', async () => {
     overrides.stop();
-    hub.stop();
+    hub.closeAll(); // terminate dashboard WebSockets so close doesn't hang
     await store.close();
   });
 
@@ -129,10 +129,22 @@ async function main() {
   await app.listen({ port: config.port, host: config.host });
   logger.info({ port: config.port, host: config.host, failMode: config.failMode }, 'server listening');
 
+  let shuttingDown = false;
   const shutdown = async (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     logger.info({ signal }, 'shutting down');
-    await app.close();
-    process.exit(0);
+    // Backstop: never let a stuck close keep the process alive.
+    const force = setTimeout(() => {
+      logger.error('forced exit after shutdown timeout');
+      process.exit(1);
+    }, 5000);
+    force.unref();
+    try {
+      await app.close();
+    } finally {
+      process.exit(0);
+    }
   };
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));

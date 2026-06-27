@@ -85,6 +85,22 @@ export class DashboardHub {
     this.timer = null;
   }
 
+  /**
+   * Close every connected socket and stop the timer. Called on shutdown so open
+   * dashboard WebSockets don't keep `app.close()` (and the process) alive.
+   */
+  closeAll() {
+    for (const socket of this.clients) {
+      try {
+        (socket.terminate || socket.close)?.call(socket);
+      } catch {
+        /* already gone */
+      }
+    }
+    this.clients.clear();
+    this.stop();
+  }
+
   flush() {
     if (this.clients.size === 0 || this.pending.length === 0) return;
     const msg = { type: 'batch', totals: this.totals, events: this.pending, stats: this.topStats() };
