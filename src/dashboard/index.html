@@ -3,219 +3,282 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>rate·limiter — live control</title>
+    <title>ratelimiter · traffic control</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <style>
       :root {
-        --bg: #0a0a0b;
-        --ink: #f3c277;
-        --ink-bright: #ffd79a;
-        --mute: #837a6c;
-        --flow: #f5b54a;
-        --heat: #ff5247;
-        --line: rgba(245, 181, 74, 0.12);
-        --line-soft: rgba(245, 181, 74, 0.06);
-        --display: 'Space Grotesk', system-ui, -apple-system, Segoe UI, sans-serif;
+        --bg0: #090c10;
+        --bg1: #0e131a;
+        --bg2: #141b24;
+        --edge: rgba(255, 255, 255, 0.08);
+        --edge-soft: rgba(255, 255, 255, 0.05);
+        --text: #e9eef4;
+        --dim: #8a96a6;
+        --faint: #5b6675;
+        --flow: #4ade9e;
+        --flow-deep: #34c98a;
+        --block: #ff6b7d;
+        --block-deep: #f0526b;
+        --display: 'Sora', system-ui, -apple-system, Segoe UI, sans-serif;
         --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        --shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.8);
+        --radius: 16px;
       }
       * { box-sizing: border-box; }
       html, body { height: 100%; }
       body {
         margin: 0;
+        font-family: var(--display);
+        color: var(--text);
         background:
-          radial-gradient(1100px 520px at 78% -8%, rgba(245, 181, 74, 0.05), transparent 60%),
-          radial-gradient(80% 60% at 50% 120%, rgba(255, 82, 71, 0.04), transparent 70%),
-          var(--bg);
-        color: var(--ink);
-        font-family: var(--mono);
-        font-size: 13px;
-        line-height: 1.5;
+          radial-gradient(1200px 640px at 85% -12%, rgba(74, 222, 158, 0.07), transparent 60%),
+          radial-gradient(1000px 560px at -5% 108%, rgba(255, 107, 125, 0.05), transparent 60%),
+          var(--bg0);
         -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
       }
-      .eyebrow { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.22em; font-size: 10px; font-weight: 600; color: var(--mute); }
+      /* premium grain */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0.035;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .app { position: relative; z-index: 1; }
 
-      .status { display: flex; align-items: center; gap: 12px; padding: 11px 22px; border-bottom: 1px solid var(--line); font-size: 11px; color: var(--mute); }
-      .status .mark { font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: -0.01em; color: var(--ink-bright); }
-      .status .mark span { color: var(--flow); }
-      .status .seg b { color: var(--ink); font-weight: 500; }
-      .grow { flex: 1; }
-      .conn { display: inline-flex; align-items: center; gap: 7px; }
-      .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mute); }
-      .conn.up { color: var(--flow); }
-      .conn.up .dot { background: var(--flow); animation: ping 2s infinite; }
-      .conn.down { color: var(--heat); }
-      .conn.down .dot { background: var(--heat); }
-      @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(245, 181, 74, 0.5); } 70% { box-shadow: 0 0 0 6px rgba(245, 181, 74, 0); } 100% { box-shadow: 0 0 0 0 rgba(245, 181, 74, 0); } }
+      .eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); }
+      .num { font-variant-numeric: tabular-nums; }
 
-      .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 22px 40px; }
+      /* ---- top bar (glass) ---- */
+      .topbar {
+        position: sticky; top: 0; z-index: 20;
+        display: flex; align-items: center; gap: 14px;
+        padding: 14px 28px;
+        background: rgba(9, 12, 16, 0.72);
+        -webkit-backdrop-filter: blur(14px) saturate(140%);
+        backdrop-filter: blur(14px) saturate(140%);
+        border-bottom: 1px solid var(--edge-soft);
+      }
+      .logo { display: flex; align-items: center; gap: 11px; }
+      .glyph { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(145deg, var(--flow), var(--flow-deep)); box-shadow: 0 4px 14px -4px rgba(74, 222, 158, 0.6); position: relative; }
+      .glyph::after { content: ''; position: absolute; inset: 6px; border-radius: 3px; border: 2px solid rgba(6, 18, 12, 0.85); border-right-color: transparent; }
+      .wordmark { font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
+      .wordmark span { color: var(--dim); font-weight: 500; }
+      .tagline { font-size: 12px; color: var(--faint); }
+      .spacer { flex: 1; }
+      .clock { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+      .pill { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--edge); background: var(--bg1); color: var(--dim); }
+      .pill .led { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+      .pill.up { color: var(--flow); border-color: rgba(74, 222, 158, 0.35); }
+      .pill.up .led { background: var(--flow); box-shadow: 0 0 0 0 rgba(74, 222, 158, 0.55); animation: ping 2.2s infinite; }
+      .pill.down { color: var(--block); border-color: rgba(255, 107, 125, 0.35); }
+      .pill.down .led { background: var(--block); }
+      @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(74, 222, 158, 0.5); } 70% { box-shadow: 0 0 0 7px rgba(74, 222, 158, 0); } 100% { box-shadow: 0 0 0 0 rgba(74, 222, 158, 0); } }
 
-      /* ---- intro ---- */
-      .intro { font-size: 14px; color: var(--mute); margin: 0 0 20px; max-width: 760px; }
-      .intro b { color: var(--ink); font-weight: 500; }
+      .container { max-width: 1180px; margin: 0 auto; padding: 30px 28px 56px; }
+
+      .intro { font-size: 15px; line-height: 1.6; color: var(--dim); max-width: 720px; margin: 0 0 26px; }
+      .intro b { color: var(--text); font-weight: 500; }
       .intro .ok { color: var(--flow); }
-      .intro .no { color: var(--heat); }
+      .intro .no { color: var(--block); }
+
+      .card {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0) 42%), var(--bg1);
+        border: 1px solid var(--edge);
+        border-radius: var(--radius);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045), var(--shadow);
+        padding: 22px 24px;
+      }
+
+      /* entrance */
+      .rise { opacity: 0; transform: translateY(10px); animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+      .d1 { animation-delay: 0.04s; } .d2 { animation-delay: 0.1s; } .d3 { animation-delay: 0.16s; } .d4 { animation-delay: 0.22s; }
+      @keyframes rise { to { opacity: 1; transform: none; } }
 
       /* ---- control deck ---- */
-      .deck { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 22px; overflow: hidden; }
-      @media (max-width: 760px) { .deck { grid-template-columns: 1fr; } }
-      .deck .pane { padding: 16px 18px; }
-      .deck .pane + .pane { border-left: 1px solid var(--line-soft); }
-      @media (max-width: 760px) { .deck .pane + .pane { border-left: none; border-top: 1px solid var(--line-soft); } }
-      .deck h3 { margin: 0 0 12px; }
-      .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .deck { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+      @media (max-width: 820px) { .deck { grid-template-columns: 1fr; } }
+      .card h3 { margin: 0 0 16px; }
+      .ctl-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-      .btn { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: #0a0a0b; background: var(--flow); border: 1px solid var(--flow); padding: 8px 15px; border-radius: 4px; cursor: pointer; transition: filter 0.15s, background 0.15s, color 0.15s; }
-      .btn:hover { filter: brightness(1.08); }
+      .btn {
+        font-family: var(--display); font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
+        color: #06140d; background: linear-gradient(180deg, var(--flow), var(--flow-deep));
+        border: none; border-radius: 11px; padding: 11px 18px; cursor: pointer;
+        box-shadow: 0 8px 20px -8px rgba(74, 222, 158, 0.55);
+        transition: transform 0.12s, box-shadow 0.18s, filter 0.18s;
+      }
+      .btn:hover { filter: brightness(1.05); box-shadow: 0 10px 26px -8px rgba(74, 222, 158, 0.7); }
       .btn:active { transform: translateY(1px); }
-      .btn:focus-visible { outline: 2px solid var(--ink-bright); outline-offset: 2px; }
-      .btn.ghost { background: transparent; color: var(--ink); }
-      .toggle { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--mute); background: transparent; border: 1px solid var(--line); padding: 8px 14px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.15s; }
-      .toggle .led { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
-      .toggle:hover { border-color: var(--mute); }
-      .toggle.on { color: #0a0a0b; background: var(--flow); border-color: var(--flow); }
-      .toggle.on .led { background: #0a0a0b; }
-      .toggle.danger.on { background: var(--heat); border-color: var(--heat); }
+      .btn.ghost { color: var(--text); background: var(--bg2); border: 1px solid var(--edge); box-shadow: none; }
+      .btn.ghost:hover { border-color: var(--dim); filter: none; }
+      .btn:focus-visible { outline: 2px solid var(--flow); outline-offset: 3px; }
 
-      /* you-meter */
-      .you { margin-top: 14px; }
-      .you-state { font-size: 13px; color: var(--mute); margin-bottom: 7px; }
-      .you-state b { color: var(--ink-bright); font-weight: 700; }
-      .you-state.ok b { color: var(--flow); }
-      .you-state.no { color: var(--heat); }
-      .you-state.no b { color: var(--heat); }
-      .meter { height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; }
-      .meter .mfill { height: 100%; width: 100%; background: linear-gradient(90deg, var(--heat), var(--flow)); transition: width 0.25s ease; }
-      .rule { margin-top: 13px; font-size: 12px; color: var(--mute); }
-      .rule b { color: var(--ink); font-weight: 500; }
-      .hint { font-size: 11px; color: var(--mute); margin-top: 9px; }
+      .toggle {
+        font-family: var(--display); font-size: 13px; font-weight: 500; color: var(--dim);
+        background: var(--bg2); border: 1px solid var(--edge); border-radius: 999px;
+        padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 9px;
+        transition: all 0.16s;
+      }
+      .toggle .led { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); transition: all 0.16s; }
+      .toggle:hover { border-color: var(--dim); color: var(--text); }
+      .toggle.on { color: #06140d; background: linear-gradient(180deg, var(--flow), var(--flow-deep)); border-color: transparent; box-shadow: 0 8px 20px -10px rgba(74, 222, 158, 0.6); }
+      .toggle.on .led { background: #06140d; }
+      .toggle.danger.on { background: linear-gradient(180deg, var(--block), var(--block-deep)); color: #fff; box-shadow: 0 8px 20px -10px rgba(255, 107, 125, 0.6); }
+      .toggle.danger.on .led { background: #fff; }
+      .toggle:focus-visible { outline: 2px solid var(--flow); outline-offset: 3px; }
 
-      /* ---- scope ---- */
-      .scope-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; }
-      .scope-legend { display: flex; gap: 18px; font-size: 11px; color: var(--mute); }
-      .scope-legend i { display: inline-block; width: 18px; height: 3px; margin-right: 7px; vertical-align: 3px; border-radius: 2px; }
-      .scope-box { position: relative; border: 1px solid var(--line); border-radius: 4px; background: linear-gradient(180deg, rgba(245, 181, 74, 0.025), transparent 70%); }
-      .scope-box::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0, rgba(0, 0, 0, 0.18) 1px, transparent 2px, transparent 3px); opacity: 0.35; border-radius: 4px; }
-      #scope { display: block; width: 100%; height: 172px; }
+      .you { margin-top: 18px; }
+      .you-label { font-size: 13px; color: var(--dim); margin-bottom: 9px; }
+      .you-label.ok { color: var(--dim); }
+      .you-label.no { color: var(--block); }
+      .you-num { font-family: var(--mono); font-weight: 600; color: var(--flow); }
+      .you-label.no .you-num { color: var(--block); }
+      .meter { height: 9px; border-radius: 6px; background: var(--bg2); border: 1px solid var(--edge-soft); overflow: hidden; }
+      .meter .mfill { height: 100%; width: 100%; background: linear-gradient(90deg, var(--block), var(--flow)); transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+      .rule { margin-top: 16px; font-size: 13px; color: var(--dim); }
+      .rule b { color: var(--text); font-weight: 500; font-family: var(--mono); }
+      .hint { font-size: 13px; line-height: 1.55; color: var(--faint); margin: 0; }
 
-      /* ---- readout ---- */
-      .readout { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 4px; margin: 22px 0; }
-      .cell { padding: 16px 20px; border-left: 1px solid var(--line-soft); }
-      .cell:first-child { border-left: none; }
-      .cell .v { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin-top: 9px; color: var(--ink-bright); font-variant-numeric: tabular-nums; }
-      .cell .v.flow { color: var(--flow); }
-      .cell .v.heat { color: var(--heat); }
+      /* ---- hero flow chart ---- */
+      .hero { position: relative; padding: 0; overflow: hidden; margin-bottom: 18px; }
+      .hero-top { display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 24px 0; }
+      .hero-metric .big { font-size: 40px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; margin-top: 8px; }
+      .hero-metric .sub { font-size: 13px; color: var(--dim); margin-top: 7px; }
+      .hero-metric .sub b { color: var(--text); font-weight: 500; font-family: var(--mono); }
+      .legend { display: flex; gap: 18px; font-size: 12px; color: var(--dim); }
+      .legend i { display: inline-block; width: 16px; height: 3px; border-radius: 2px; margin-right: 7px; vertical-align: 3px; }
+      #scope { display: block; width: 100%; height: 200px; margin-top: 6px; }
 
-      /* ---- body ---- */
-      .cols { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 28px; align-items: start; }
-      @media (max-width: 900px) { .cols { grid-template-columns: 1fr; gap: 26px; } }
-      .panel-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
-      .panel-head .count { font-size: 11px; color: var(--mute); }
+      /* ---- stat strip ---- */
+      .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--edge-soft); border: 1px solid var(--edge); border-radius: var(--radius); overflow: hidden; margin-bottom: 26px; }
+      .stat { background: var(--bg1); padding: 18px 22px; }
+      .stat .v { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-top: 10px; }
+      .stat .v.flow { color: var(--flow); }
+      .stat .v.block { color: var(--block); }
 
-      .keys { display: flex; flex-direction: column; }
-      .krow { display: grid; grid-template-columns: 14px 168px 1fr 96px; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line-soft); }
-      .krow .tick { width: 3px; height: 22px; border-radius: 2px; background: transparent; justify-self: start; }
-      .krow.hot .tick { background: var(--heat); }
-      .krow .key { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
-      .krow .key small { color: var(--mute); }
-      .bar { display: flex; align-items: center; gap: 10px; }
-      .bar .track { position: relative; flex: 1; height: 5px; background: var(--line-soft); border-radius: 3px; overflow: hidden; }
-      .bar .fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--flow), var(--heat)); transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
-      .bar .pct { width: 38px; text-align: right; font-size: 11px; color: var(--mute); font-variant-numeric: tabular-nums; }
-      .krow .nums { text-align: right; font-size: 11px; color: var(--mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
-      .krow .nums b { color: var(--heat); font-weight: 500; }
+      /* ---- panels ---- */
+      .grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 18px; align-items: start; }
+      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+      .phead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+      .phead .count { font-size: 12px; color: var(--faint); }
 
-      .feed { max-height: 420px; overflow-y: auto; }
-      .line { display: grid; grid-template-columns: 74px 52px 1fr auto; gap: 12px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--line-soft); font-size: 12px; animation: drop 0.18s ease both; }
-      .line .ts { color: var(--mute); font-size: 11px; }
-      .line .tag { font-weight: 700; font-size: 11px; letter-spacing: 0.04em; }
-      .line.allow .tag { color: var(--flow); }
-      .line.block .tag { color: var(--heat); }
-      .line .key { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .line .meta { color: var(--mute); font-size: 11px; white-space: nowrap; }
-      @keyframes drop { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+      .keys { display: flex; flex-direction: column; gap: 2px; }
+      .krow { display: grid; grid-template-columns: 1fr auto; gap: 8px 14px; align-items: center; padding: 11px 6px; border-radius: 10px; transition: background 0.15s; }
+      .krow:hover { background: var(--bg2); }
+      .krow .key { font-family: var(--mono); font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .krow .key .lim { color: var(--faint); font-size: 11px; }
+      .krow .nums { font-family: var(--mono); font-size: 12px; color: var(--dim); white-space: nowrap; }
+      .krow .nums b { color: var(--block); font-weight: 600; }
+      .krow .bar { grid-column: 1 / -1; position: relative; height: 6px; border-radius: 4px; background: var(--bg2); overflow: hidden; }
+      .krow .fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: linear-gradient(90deg, var(--flow), var(--block)); transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
 
-      .empty { color: var(--mute); padding: 30px 4px; text-align: center; font-size: 12px; }
-      .feed::-webkit-scrollbar { width: 7px; }
-      .feed::-webkit-scrollbar-thumb { background: var(--line); border-radius: 7px; }
+      .feed { display: flex; flex-direction: column; max-height: 430px; overflow-y: auto; margin: -6px -6px 0; padding: 0 6px; }
+      .line { display: grid; grid-template-columns: 70px 60px 1fr auto; gap: 12px; align-items: baseline; padding: 8px 4px; border-bottom: 1px solid var(--edge-soft); font-family: var(--mono); font-size: 12px; animation: drop 0.2s ease both; }
+      .line .ts { color: var(--faint); }
+      .line .tag { font-family: var(--display); font-weight: 600; font-size: 10px; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 6px; text-align: center; }
+      .line.allow .tag { color: var(--flow); background: rgba(74, 222, 158, 0.12); }
+      .line.block .tag { color: var(--block); background: rgba(255, 107, 125, 0.14); }
+      .line .key { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .line .meta { color: var(--faint); white-space: nowrap; }
+      @keyframes drop { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 
-      @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+      .empty { color: var(--faint); padding: 34px 6px; text-align: center; font-size: 13px; }
+      .empty b { color: var(--flow); }
+      .feed::-webkit-scrollbar { width: 8px; }
+      .feed::-webkit-scrollbar-thumb { background: var(--edge); border-radius: 8px; }
+      .feed::-webkit-scrollbar-track { background: transparent; }
+
+      @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } .rise { opacity: 1; transform: none; } }
     </style>
   </head>
   <body>
-    <div class="status">
-      <span class="mark">rate<span>·</span>limiter</span>
-      <span class="seg">· live control</span>
-      <span class="grow"></span>
-      <span class="seg">clock <b id="clock">--:--:--</b></span>
-      <span class="conn down" id="conn"><span class="dot"></span><span id="conn-text">connecting</span></span>
-    </div>
-
-    <div class="wrap">
-      <p class="intro">
-        A rate limiter caps how many requests each client (here, each IP) may make in a time window.
-        Stay under the limit and you're <b class="ok">allowed</b>; go over and you're
-        <b class="no">throttled</b> with HTTP&nbsp;429. Use the controls to make it happen.
-      </p>
-
-      <!-- CONTROL DECK -->
-      <div class="deck">
-        <div class="pane">
-          <h3 class="eyebrow">Try it yourself</h3>
-          <div class="row">
-            <button id="send" class="btn" type="button">Send a request</button>
-            <button id="flood" class="btn ghost" type="button">Flood ×40</button>
-          </div>
-          <div class="you">
-            <div id="you-state" class="you-state">Your requests left before throttling: <b id="you-num">—</b></div>
-            <div class="meter"><div id="you-fill" class="mfill"></div></div>
-          </div>
-          <div class="rule">Active rule: <b id="rule">loading…</b></div>
+    <div class="app">
+      <header class="topbar">
+        <div class="logo">
+          <div class="glyph"></div>
+          <div class="wordmark">ratelimiter <span>/ traffic control</span></div>
         </div>
-        <div class="pane">
-          <h3 class="eyebrow">Simulate other clients</h3>
-          <div class="row">
-            <button id="tg-normal" class="toggle" type="button"><span class="led"></span>Normal users</button>
-            <button id="tg-attacker" class="toggle danger" type="button"><span class="led"></span>Bot attack</button>
+        <span class="spacer"></span>
+        <span class="clock" id="clock">--:--:--</span>
+        <span class="pill down" id="conn"><span class="led"></span><span id="conn-text">connecting</span></span>
+      </header>
+
+      <main class="container">
+        <p class="intro rise">
+          A rate limiter caps how many requests each client (here, each IP) may make per time window.
+          Under the limit you're <b class="ok">allowed</b>; over it you're <b class="no">throttled</b> with
+          HTTP&nbsp;429. Drive it with the controls and watch it respond live.
+        </p>
+
+        <section class="deck">
+          <div class="card rise d1">
+            <h3 class="eyebrow">Try it yourself</h3>
+            <div class="ctl-row">
+              <button id="send" class="btn" type="button">Send a request</button>
+              <button id="flood" class="btn ghost" type="button">Flood ×40</button>
+            </div>
+            <div class="you">
+              <div id="you-state" class="you-label">Requests left before you're throttled: <span class="you-num" id="you-num">—</span></div>
+              <div class="meter"><div id="you-fill" class="mfill"></div></div>
+            </div>
+            <div class="rule">Active rule&nbsp; <b id="rule">loading…</b></div>
           </div>
-          <p class="hint">
-            Normal users stay green. Turn on the bot attack and watch one IP cross the limit and go red
-            in the chart and the lists below.
-          </p>
-        </div>
-      </div>
 
-      <!-- SIGNATURE -->
-      <div class="scope-head">
-        <span class="eyebrow">throughput / req · per second · last 90s</span>
-        <span class="scope-legend">
-          <span><i style="background: var(--flow)"></i>allowed</span>
-          <span><i style="background: var(--heat)"></i>blocked</span>
-        </span>
-      </div>
-      <div class="scope-box"><canvas id="scope"></canvas></div>
-
-      <div class="readout">
-        <div class="cell"><div class="eyebrow">Allowed</div><div id="t-allowed" class="v flow">0</div></div>
-        <div class="cell"><div class="eyebrow">Blocked</div><div id="t-blocked" class="v heat">0</div></div>
-        <div class="cell"><div class="eyebrow">Block rate</div><div id="t-rate" class="v">0%</div></div>
-        <div class="cell"><div class="eyebrow">Active keys</div><div id="t-keys" class="v">0</div></div>
-      </div>
-
-      <div class="cols">
-        <section>
-          <div class="panel-head"><span class="eyebrow">Throttled keys · by intensity</span><span class="count" id="k-count"></span></div>
-          <div id="keys" class="keys"><div class="empty">No traffic yet — send a request or simulate clients above.</div></div>
+          <div class="card rise d2">
+            <h3 class="eyebrow">Simulate other clients</h3>
+            <div class="ctl-row">
+              <button id="tg-normal" class="toggle" type="button"><span class="led"></span>Normal users</button>
+              <button id="tg-attacker" class="toggle danger" type="button"><span class="led"></span>Bot attack</button>
+            </div>
+            <p class="hint" style="margin-top: 16px">
+              Normal users stay under the limit. Turn on the bot attack and watch one IP cross the limit and
+              turn red — in the chart and the lists below.
+            </p>
+          </div>
         </section>
-        <section>
-          <div class="panel-head"><span class="eyebrow">Event stream</span><span class="count">live</span></div>
-          <div id="feed" class="feed"><div class="empty">Waiting for requests…</div></div>
+
+        <section class="card hero rise d3">
+          <div class="hero-top">
+            <div class="hero-metric">
+              <div class="eyebrow">Block rate · live</div>
+              <div class="big num" id="hero-rate">0%</div>
+              <div class="sub">throughput <b id="hero-tput">0</b> req/s · last 90s</div>
+            </div>
+            <div class="legend">
+              <span><i style="background: var(--flow)"></i>allowed</span>
+              <span><i style="background: var(--block)"></i>blocked</span>
+            </div>
+          </div>
+          <canvas id="scope"></canvas>
         </section>
-      </div>
+
+        <section class="stats rise d3">
+          <div class="stat"><div class="eyebrow">Allowed</div><div id="t-allowed" class="v flow num">0</div></div>
+          <div class="stat"><div class="eyebrow">Blocked</div><div id="t-blocked" class="v block num">0</div></div>
+          <div class="stat"><div class="eyebrow">Block rate</div><div id="t-rate" class="v num">0%</div></div>
+          <div class="stat"><div class="eyebrow">Active keys</div><div id="t-keys" class="v num">0</div></div>
+        </section>
+
+        <section class="grid">
+          <div class="card rise d4">
+            <div class="phead"><span class="eyebrow">Throttled clients · by intensity</span><span class="count" id="k-count"></span></div>
+            <div id="keys" class="keys"><div class="empty">No traffic yet — send a request or simulate clients above.</div></div>
+          </div>
+          <div class="card rise d4">
+            <div class="phead"><span class="eyebrow">Activity</span><span class="count">live</span></div>
+            <div id="feed" class="feed"><div class="empty">Waiting for requests…</div></div>
+          </div>
+        </section>
+      </main>
     </div>
 
     <script>
@@ -227,7 +290,7 @@
       let stats = [];
       const feed = [];
       window.__totals = { allowed: 0, blocked: 0 };
-      let burst = 20; // meter denominator for the "you" panel
+      let burst = 20;
 
       function render() {
         const { allowed, blocked } = window.__totals;
@@ -237,24 +300,25 @@
         $('t-blocked').textContent = fmt(blocked);
         const rEl = $('t-rate');
         rEl.textContent = rate.toFixed(1) + '%';
-        rEl.className = 'v ' + (rate > 25 ? 'heat' : rate > 5 ? 'flow' : '');
+        rEl.className = 'v num' + (rate > 25 ? ' block' : rate > 5 ? ' flow' : '');
         $('t-keys').textContent = stats.length;
         $('k-count').textContent = stats.length ? stats.length + ' keys' : '';
+        $('hero-rate').textContent = rate.toFixed(1) + '%';
+        $('hero-rate').style.color = rate > 25 ? 'var(--block)' : rate > 5 ? 'var(--flow)' : 'var(--text)';
 
         const keysEl = $('keys');
         if (!stats.length) {
           keysEl.innerHTML = '<div class="empty">No traffic yet — send a request or simulate clients above.</div>';
         } else {
           keysEl.innerHTML = stats
-            .slice(0, 12)
+            .slice(0, 10)
             .map((s) => {
               const tot = s.allowed + s.blocked;
               const pct = tot ? Math.round((s.blocked / tot) * 100) : 0;
               return (
-                `<div class="krow ${pct > 0 ? 'hot' : ''}"><span class="tick"></span>` +
-                `<div class="key">${esc(s.key)} <small>lim ${s.limit ?? '-'}</small></div>` +
-                `<div class="bar"><div class="track"><div class="fill" style="width:${pct}%"></div></div><span class="pct">${pct}%</span></div>` +
-                `<div class="nums"><b>${fmt(s.blocked)}</b> blk · ${fmt(s.allowed)} ok</div></div>`
+                `<div class="krow"><div class="key">${esc(s.key)} <span class="lim">· lim ${s.limit ?? '-'}</span></div>` +
+                `<div class="nums"><b>${fmt(s.blocked)}</b> blocked · ${fmt(s.allowed)} ok · ${pct}%</div>` +
+                `<div class="bar"><div class="fill" style="width:${pct}%"></div></div></div>`
               );
             })
             .join('');
@@ -270,7 +334,7 @@
               const ts = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
               const cls = e.allowed ? 'allow' : 'block';
               const tag = e.allowed ? 'ALLOW' : 'BLOCK';
-              const meta = e.allowed ? `rem ${e.remaining}` : `retry ${Math.ceil((e.retryAfterMs || 0) / 1000)}s`;
+              const meta = e.allowed ? `${e.remaining} left` : `retry ${Math.ceil((e.retryAfterMs || 0) / 1000)}s`;
               return `<div class="line ${cls}"><span class="ts">${ts}</span><span class="tag">${tag}</span><span class="key">${esc(e.key)}</span><span class="meta">${meta}</span></div>`;
             })
             .join('');
@@ -278,40 +342,30 @@
       }
 
       function pushEvents(events) {
-        for (const e of events) {
-          feed.unshift(e);
-          if (feed.length > 50) feed.pop();
-        }
+        for (const e of events) { feed.unshift(e); if (feed.length > 50) feed.pop(); }
       }
 
-      // ---- try it: real requests from YOUR browser ----
+      // ---- try it: real requests from your browser ----
       function setYou(status, remaining, retry) {
         const el = $('you-state');
         if (status === 429) {
-          el.className = 'you-state no';
-          el.innerHTML = `Throttled — <b>429</b>. Retry in ${retry || 0}s. Stop and your budget refills.`;
+          el.className = 'you-label no';
+          el.innerHTML = `Throttled — <span class="you-num">429</span>. Retry in ${retry || 0}s; stop and your budget refills.`;
           $('you-fill').style.width = '0%';
         } else {
           const rem = remaining == null ? burst : Number(remaining);
-          el.className = 'you-state ok';
-          el.innerHTML = `Your requests left before throttling: <b>${rem}</b>`;
+          el.className = 'you-label ok';
+          el.innerHTML = `Requests left before you're throttled: <span class="you-num">${rem}</span>`;
           $('you-fill').style.width = Math.max(0, Math.min(100, (rem / burst) * 100)) + '%';
         }
       }
-
       async function sendOne() {
         try {
           const res = await fetch('/api/ping', { cache: 'no-store' });
           setYou(res.status, res.headers.get('RateLimit-Remaining'), res.headers.get('Retry-After'));
-        } catch {
-          /* ignore */
-        }
+        } catch { /* ignore */ }
       }
-      async function flood(n) {
-        const jobs = [];
-        for (let i = 0; i < n; i++) jobs.push(sendOne());
-        await Promise.all(jobs);
-      }
+      async function flood(n) { await Promise.all(Array.from({ length: n }, sendOne)); }
       $('send').addEventListener('click', sendOne);
       $('flood').addEventListener('click', () => flood(40));
 
@@ -322,17 +376,12 @@
       }
       async function toggleLane(name, btn) {
         const on = !btn.classList.contains('on');
-        try {
-          const res = await fetch(`/demo/lane/${name}/${on ? 'on' : 'off'}`, { method: 'POST' });
-          syncLanes(await res.json());
-        } catch {
-          /* ignore */
-        }
+        try { syncLanes(await (await fetch(`/demo/lane/${name}/${on ? 'on' : 'off'}`, { method: 'POST' })).json()); } catch { /* ignore */ }
       }
       $('tg-normal').addEventListener('click', (e) => toggleLane('normal', e.currentTarget));
       $('tg-attacker').addEventListener('click', (e) => toggleLane('attacker', e.currentTarget));
 
-      // ---- the scope ----
+      // ---- hero flow chart ----
       const canvas = $('scope');
       const ctx = canvas.getContext('2d');
       const N = 90;
@@ -354,47 +403,67 @@
         last = { ...window.__totals };
         series.push({ a, b });
         series.shift();
+        $('hero-tput').textContent = fmt(a + b);
       }
-      function trace(values, max, y0, h) {
-        const step = cssW / (N - 1);
+      // smooth path through points (quadratic midpoints)
+      function smooth(pts, close, y0) {
         ctx.beginPath();
-        ctx.moveTo(0, y0);
-        for (let i = 0; i < N; i++) ctx.lineTo(i * step, y0 - (values[i] / max) * h);
-        ctx.lineTo(cssW, y0);
-        ctx.closePath();
+        if (close) ctx.moveTo(pts[0].x, y0);
+        ctx.lineTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) {
+          const xc = (pts[i - 1].x + pts[i].x) / 2;
+          const yc = (pts[i - 1].y + pts[i].y) / 2;
+          ctx.quadraticCurveTo(pts[i - 1].x, pts[i - 1].y, xc, yc);
+        }
+        ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+        if (close) { ctx.lineTo(pts[pts.length - 1].x, y0); ctx.closePath(); }
+      }
+      function points(values, max, y0, h) {
+        const step = cssW / (N - 1);
+        return values.map((v, i) => ({ x: i * step, y: y0 - (v / max) * h }));
       }
       function draw() {
         ctx.clearRect(0, 0, cssW, cssH);
-        const pad = 8;
-        const h = cssH - pad * 2;
-        const y0 = pad + h;
+        const padT = 14, padB = 4;
+        const h = cssH - padT - padB;
+        const y0 = padT + h;
         const totals = series.map((s) => s.a + s.b);
         const blocked = series.map((s) => s.b);
-        const max = Math.max(4, ...totals);
-        const step = cssW / (N - 1);
+        const max = Math.max(5, ...totals);
 
-        ctx.strokeStyle = 'rgba(245,181,74,0.08)';
+        // faint guides
+        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
         ctx.lineWidth = 1;
-        for (let g = 1; g < 4; g++) { const y = pad + (h * g) / 4; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cssW, y); ctx.stroke(); }
-        for (let g = 1; g < 12; g++) { const x = (cssW * g) / 12; ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, y0); ctx.stroke(); }
+        for (let g = 1; g <= 3; g++) { const y = padT + (h * g) / 4; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cssW, y); ctx.stroke(); }
 
-        trace(totals, max, y0, h);
-        let grad = ctx.createLinearGradient(0, pad, 0, y0);
-        grad.addColorStop(0, 'rgba(245,181,74,0.30)');
-        grad.addColorStop(1, 'rgba(245,181,74,0.02)');
-        ctx.fillStyle = grad; ctx.fill();
-        ctx.beginPath();
-        for (let i = 0; i < N; i++) { const x = i * step, y = y0 - (totals[i] / max) * h; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
-        ctx.strokeStyle = 'rgba(245,181,74,0.9)'; ctx.lineWidth = 1.5; ctx.shadowColor = 'rgba(245,181,74,0.6)'; ctx.shadowBlur = 8; ctx.stroke(); ctx.shadowBlur = 0;
+        const ptsTotal = points(totals, max, y0, h);
+        const ptsBlock = points(blocked, max, y0, h);
 
-        trace(blocked, max, y0, h);
-        grad = ctx.createLinearGradient(0, pad, 0, y0);
-        grad.addColorStop(0, 'rgba(255,82,71,0.38)');
-        grad.addColorStop(1, 'rgba(255,82,71,0.03)');
-        ctx.fillStyle = grad; ctx.fill();
-        ctx.beginPath();
-        for (let i = 0; i < N; i++) { const x = i * step, y = y0 - (blocked[i] / max) * h; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
-        ctx.strokeStyle = 'rgba(255,82,71,0.95)'; ctx.lineWidth = 1.5; ctx.shadowColor = 'rgba(255,82,71,0.6)'; ctx.shadowBlur = 8; ctx.stroke(); ctx.shadowBlur = 0;
+        // allowed area
+        smooth(ptsTotal, true, y0);
+        let g = ctx.createLinearGradient(0, padT, 0, y0);
+        g.addColorStop(0, 'rgba(74,222,158,0.34)');
+        g.addColorStop(1, 'rgba(74,222,158,0.015)');
+        ctx.fillStyle = g; ctx.fill();
+        // allowed line + glow
+        smooth(ptsTotal, false);
+        ctx.strokeStyle = 'rgba(74,222,158,0.95)'; ctx.lineWidth = 2;
+        ctx.shadowColor = 'rgba(74,222,158,0.55)'; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0;
+
+        // blocked area
+        smooth(ptsBlock, true, y0);
+        g = ctx.createLinearGradient(0, padT, 0, y0);
+        g.addColorStop(0, 'rgba(255,107,125,0.42)');
+        g.addColorStop(1, 'rgba(255,107,125,0.02)');
+        ctx.fillStyle = g; ctx.fill();
+        smooth(ptsBlock, false);
+        ctx.strokeStyle = 'rgba(255,107,125,0.95)'; ctx.lineWidth = 2;
+        ctx.shadowColor = 'rgba(255,107,125,0.5)'; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0;
+
+        // leading pulse on the allowed line
+        const tip = ptsTotal[ptsTotal.length - 1];
+        ctx.beginPath(); ctx.arc(tip.x, tip.y, 3.2, 0, Math.PI * 2);
+        ctx.fillStyle = '#4ade9e'; ctx.shadowColor = 'rgba(74,222,158,0.9)'; ctx.shadowBlur = 12; ctx.fill(); ctx.shadowBlur = 0;
       }
       function clock() {
         const d = new Date();
@@ -406,8 +475,8 @@
       function connect() {
         const proto = location.protocol === 'https:' ? 'wss' : 'ws';
         const ws = new WebSocket(`${proto}://${location.host}/ws/feed`);
-        ws.onopen = () => { $('conn').className = 'conn up'; $('conn-text').textContent = 'connected'; };
-        ws.onclose = () => { $('conn').className = 'conn down'; $('conn-text').textContent = 'reconnecting'; setTimeout(connect, 1000); };
+        ws.onopen = () => { $('conn').className = 'pill up'; $('conn-text').textContent = 'connected'; };
+        ws.onclose = () => { $('conn').className = 'pill down'; $('conn-text').textContent = 'reconnecting'; setTimeout(connect, 1000); };
         ws.onmessage = (msg) => {
           const data = JSON.parse(msg.data);
           if (data.totals) window.__totals = data.totals;
@@ -418,15 +487,13 @@
         };
       }
 
-      // ---- init: load rule + lane state ----
       fetch('/demo/status')
         .then((r) => r.json())
         .then((s) => {
           syncLanes(s);
           if (s.rule) {
             burst = s.rule.burst || s.rule.limit || 20;
-            const secs = Math.round((s.rule.windowMs || 0) / 1000);
-            $('rule').textContent = `${s.rule.limit} requests / ${secs}s · burst ${s.rule.burst} · ${s.rule.strategy}`;
+            $('rule').textContent = `${s.rule.limit} req / ${Math.round((s.rule.windowMs || 0) / 1000)}s · burst ${s.rule.burst} · ${s.rule.strategy}`;
             setYou(200, burst, 0);
           }
         })
