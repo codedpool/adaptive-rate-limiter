@@ -24,8 +24,18 @@ export class Store {
       retryStrategy: (times) => Math.min(times * 200, 2000),
       ...opts,
     });
-    this.client.on('error', (err) => logger.warn({ err: err.message }, 'redis error'));
-    this.client.on('ready', () => logger.info('redis ready'));
+    // Log a connection error once, not on every reconnect attempt — so a
+    // deliberately Redis-less deploy (fail-open mode) doesn't spam the logs.
+    this._errorLogged = false;
+    this.client.on('error', (err) => {
+      if (this._errorLogged) return;
+      this._errorLogged = true;
+      logger.warn({ err: err.message }, 'redis unreachable — running in fail-open mode until it recovers');
+    });
+    this.client.on('ready', () => {
+      this._errorLogged = false;
+      logger.info('redis ready');
+    });
   }
 
   async connect() {

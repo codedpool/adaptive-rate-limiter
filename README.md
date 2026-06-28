@@ -110,21 +110,22 @@ request rate ≠ frame rate, and works even with Redis down. See
 
 ---
 
-## Deploy (one service, no separate frontend)
+## Deploy — one click, no config
 
-The dashboard, API, metrics, and WebSocket all run on the **same** Fastify
-service — the UI is served from `/` (and `/dashboard`) — so there's nothing
-separate to host. A [render.yaml](render.yaml) blueprint is included:
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/codedpool/adaptive-rate-limiter)
 
-1. Push to GitHub and create a Render **Blueprint** from the repo (or a Node web
-   service with build `npm ci`, start `npm start`, health check `/health`).
-2. That's it — open the service URL and the dashboard loads.
+Click the button (or create a Render **Blueprint** from the repo). The included
+[render.yaml](render.yaml) provisions a single Node web service — **no env vars to
+set**: Render injects `PORT`, the app binds `0.0.0.0`, the admin token is
+auto-generated, and `/health` is the health check. The dashboard, API, metrics,
+and WebSocket all run on that one service (UI served from `/`), so there's nothing
+separate to host. Open the service URL and the dashboard loads.
 
-Redis is **optional**: with no `REDIS_URL` the limiter fails open to a per-node
-in-memory limiter and the dashboard still works. Set `REDIS_URL` (Render Key
-Value, Upstash, etc.) for true distributed limits, and run `npm run worker` as a
-separate background service to enable adaptive suggestions. Render injects `PORT`;
-the app reads it and binds `0.0.0.0`.
+Redis is **optional**. With none configured the limiter **fails open** to a
+per-instance in-memory limiter and the whole dashboard still works — fine for a
+demo. To enable true distributed limits, add a `REDIS_URL` env var (Render Key
+Value, Upstash, etc.); to enable adaptive suggestions, run `npm run worker` as a
+separate background worker.
 
 ---
 
